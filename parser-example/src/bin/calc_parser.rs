@@ -35,6 +35,8 @@ use lexer_framework::{
 };
 use parser_framework::{AstNode, DefaultContext, ParseContext, Parser, ParsingRule, Position};
 
+type CalcLexerRules = Vec<Box<dyn LexingRule<LexContext, CalcToken>>>;
+
 // ============================================================================
 // Token 定义（从 lexer-example 复制，但为了完整性包含在这里）
 // ============================================================================
@@ -92,9 +94,9 @@ impl LexToken for CalcToken {
 
 struct NumberRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for NumberRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for NumberRule
 where
-    Ctx: LexContextTrait<'input>,
+    Ctx: LexContextTrait,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<CalcToken> {
         let position = ctx.position();
@@ -143,9 +145,9 @@ where
 
 struct OperatorRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for OperatorRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for OperatorRule
 where
-    Ctx: LexContextTrait<'input>,
+    Ctx: LexContextTrait,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -180,9 +182,9 @@ where
 
 struct WhitespaceRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for WhitespaceRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for WhitespaceRule
 where
-    Ctx: LexContextTrait<'input>,
+    Ctx: LexContextTrait,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<CalcToken> {
         if ctx.peek().is_some_and(|c| c.is_whitespace()) {
@@ -201,9 +203,9 @@ where
 
 struct EofRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for EofRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for EofRule
 where
-    Ctx: LexContextTrait<'input>,
+    Ctx: LexContextTrait,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<CalcToken> {
         if ctx.is_eof() {
@@ -786,7 +788,7 @@ fn main() {
 
         // 步骤 1: 词法分析
         println!("\n[步骤 1] 词法分析:");
-        let lexer_rules: Vec<Box<dyn LexingRule<'_, LexContext<'_>, CalcToken> + '_>> = vec![
+        let lexer_rules: CalcLexerRules = vec![
             Box::new(NumberRule),
             Box::new(OperatorRule),
             Box::new(WhitespaceRule),

@@ -110,9 +110,9 @@ struct SimpleRule {
     match_char: char,
 }
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for SimpleRule
+impl<Ctx> LexingRule<Ctx, TestToken> for SimpleRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         if ctx.peek() == Some(self.match_char) {
@@ -140,9 +140,9 @@ where
 fn test_lexing_rule_default_priority() {
     struct DefaultPriorityRule;
     
-    impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for DefaultPriorityRule
+    impl<Ctx> LexingRule<Ctx, TestToken> for DefaultPriorityRule
     where
-        Ctx: LexContext<'input>,
+        Ctx: LexContext,
     {
         fn try_match(&mut self, _ctx: &mut Ctx) -> Option<TestToken> {
             None
@@ -152,7 +152,7 @@ fn test_lexing_rule_default_priority() {
     
     // Test through actual usage
     use lexer_framework::Lexer;
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(DefaultPriorityRule)];
     let _lexer = Lexer::from_str("test", rules);
     // This test verifies the rule compiles and uses default priority
@@ -162,7 +162,7 @@ fn test_lexing_rule_default_priority() {
 fn test_lexing_rule_custom_priority() {
     // Test through actual usage
     use lexer_framework::Lexer;
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(SimpleRule { match_char: 'a' })];
     let mut lexer = Lexer::from_str("a", rules);
     
@@ -175,9 +175,9 @@ fn test_lexing_rule_custom_priority() {
 fn test_lexing_rule_default_quick_check() {
     struct NoQuickCheckRule;
     
-    impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for NoQuickCheckRule
+    impl<Ctx> LexingRule<Ctx, TestToken> for NoQuickCheckRule
     where
-        Ctx: LexContext<'input>,
+        Ctx: LexContext,
     {
         fn try_match(&mut self, _ctx: &mut Ctx) -> Option<TestToken> {
             None
@@ -197,9 +197,9 @@ fn test_lexing_rule_default_quick_check() {
 fn test_lexing_rule_quick_check_implemented() {
     struct WithQuickCheckRule;
     
-    impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for WithQuickCheckRule
+    impl<Ctx> LexingRule<Ctx, TestToken> for WithQuickCheckRule
     where
-        Ctx: LexContext<'input>,
+        Ctx: LexContext,
     {
         fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
             Some(first_char == Some('x'))
@@ -225,7 +225,7 @@ fn test_lexing_rule_quick_check_implemented() {
     
     // Test through actual usage
     use lexer_framework::Lexer;
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(WithQuickCheckRule)];
     let mut lexer = Lexer::from_str("x", rules);
     
@@ -234,7 +234,7 @@ fn test_lexing_rule_quick_check_implemented() {
     assert!(token.is_some());
     
     // Should not match 'y' (quick_check returns false)
-    let rules2: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules2: RuleSet<TestToken> =
         vec![Box::new(WithQuickCheckRule)];
     let mut lexer2 = Lexer::from_str("y", rules2);
     let token2 = lexer2.next_token();

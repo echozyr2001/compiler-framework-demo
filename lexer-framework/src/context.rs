@@ -1,15 +1,15 @@
 use crate::cursor::Cursor;
-use common_framework::Position;
+use common_framework::{Position, TextSlice};
 
 /// Context for lexing operations in CGP (Context-Generic Programming).
 /// This trait allows lexing rules to access contextual information
 /// without being tightly coupled to a specific lexer implementation.
-pub trait LexContext<'input> {
+pub trait LexContext {
     /// Returns a reference to the cursor.
-    fn cursor(&self) -> &Cursor<'input>;
+    fn cursor(&self) -> &Cursor;
 
     /// Returns a mutable reference to the cursor.
-    fn cursor_mut(&mut self) -> &mut Cursor<'input>;
+    fn cursor_mut(&mut self) -> &mut Cursor;
 
     /// Returns the current position.
     fn position(&self) -> Position {
@@ -32,7 +32,7 @@ pub trait LexContext<'input> {
     }
 
     /// Consumes characters while the predicate returns true.
-    fn consume_while<F>(&mut self, predicate: F) -> &'input str
+    fn consume_while<F>(&mut self, predicate: F) -> TextSlice
     where
         F: FnMut(char) -> bool,
     {
@@ -52,24 +52,28 @@ pub trait LexContext<'input> {
 
 /// A simple default context implementation.
 #[derive(Debug)]
-pub struct DefaultContext<'input> {
-    cursor: Cursor<'input>,
+pub struct DefaultContext {
+    cursor: Cursor,
 }
 
-impl<'input> DefaultContext<'input> {
-    pub fn new(input: &'input str) -> Self {
+impl DefaultContext {
+    pub fn new<S: Into<String>>(input: S) -> Self {
         Self {
             cursor: Cursor::new(input),
         }
     }
+
+    pub fn from_cursor(cursor: Cursor) -> Self {
+        Self { cursor }
+    }
 }
 
-impl<'input> LexContext<'input> for DefaultContext<'input> {
-    fn cursor(&self) -> &Cursor<'input> {
+impl LexContext for DefaultContext {
+    fn cursor(&self) -> &Cursor {
         &self.cursor
     }
 
-    fn cursor_mut(&mut self) -> &mut Cursor<'input> {
+    fn cursor_mut(&mut self) -> &mut Cursor {
         &mut self.cursor
     }
 }

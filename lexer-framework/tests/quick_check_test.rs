@@ -2,6 +2,8 @@ use lexer_framework::{
     DefaultContext, LexContext, Lexer, LexingRule, LexToken, Position,
 };
 
+type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TestToken {
     Digit { value: char, position: Position },
@@ -38,9 +40,9 @@ impl LexToken for TestToken {
 // Rule with quick_check that returns Some(false) for non-digits
 struct DigitRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for DigitRule
+impl<Ctx> LexingRule<Ctx, TestToken> for DigitRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -68,9 +70,9 @@ where
 // Rule with quick_check that returns Some(true) for letters
 struct LetterRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for LetterRule
+impl<Ctx> LexingRule<Ctx, TestToken> for LetterRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -98,9 +100,9 @@ where
 // Rule without quick_check (default None)
 struct OtherRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for OtherRule
+impl<Ctx> LexingRule<Ctx, TestToken> for OtherRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         let ch = ctx.peek()?;
@@ -122,8 +124,7 @@ where
 #[test]
 fn test_quick_check_skips_non_matching() {
     // DigitRule should be skipped for 'a' via quick_check
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(DigitRule), Box::new(LetterRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(DigitRule), Box::new(LetterRule)];
     let mut lexer = Lexer::from_str("a", rules);
     
     let token = lexer.next_token();
@@ -139,7 +140,7 @@ fn test_quick_check_skips_non_matching() {
 #[test]
 fn test_quick_check_allows_matching() {
     // DigitRule should match '5' via quick_check
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(DigitRule), Box::new(LetterRule)];
     let mut lexer = Lexer::from_str("5", rules);
     
@@ -156,7 +157,7 @@ fn test_quick_check_allows_matching() {
 #[test]
 fn test_quick_check_none_always_tries() {
     // OtherRule has no quick_check, should always try
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(DigitRule), Box::new(LetterRule), Box::new(OtherRule)];
     let mut lexer = Lexer::from_str("!", rules);
     
@@ -174,7 +175,7 @@ fn test_quick_check_none_always_tries() {
 
 #[test]
 fn test_quick_check_mixed_input() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(DigitRule), Box::new(LetterRule), Box::new(OtherRule)];
     let lexer = Lexer::from_str("a5!", rules);
     
@@ -205,8 +206,7 @@ fn test_quick_check_mixed_input() {
 
 #[test]
 fn test_quick_check_eof() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(DigitRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(DigitRule)];
     let mut lexer = Lexer::from_str("", rules);
     
     // quick_check with None (EOF) should return None (unknown)

@@ -1,22 +1,30 @@
-use common_framework::Position;
+use common_framework::{Position, TextSlice};
+use std::sync::Arc;
 
 /// A cursor for traversing input text during lexing.
 /// This is part of the CGP (Context-Generic Programming) design,
 /// allowing rules to operate on a generic cursor interface.
 #[derive(Debug, Clone)]
-pub struct Cursor<'input> {
-    input: &'input str,
+pub struct Cursor {
+    buffer: Arc<str>,
     current: usize,
     position: Position,
 }
 
-impl<'input> Cursor<'input> {
+impl Cursor {
     /// Creates a new cursor from the input string.
-    pub fn new(input: &'input str) -> Self {
+    pub fn new<S: Into<String>>(input: S) -> Self {
+        let owned = input.into();
+        let buffer = Arc::<str>::from(owned);
+        Self::with_arc(buffer)
+    }
+
+    /// Creates a cursor from an existing shared buffer.
+    pub fn with_arc(buffer: Arc<str>) -> Self {
         Self {
-            input,
             current: 0,
             position: Position::new(),
+            buffer,
         }
     }
 
@@ -32,26 +40,31 @@ impl<'input> Cursor<'input> {
 
     /// Returns true if the cursor is at the end of the input.
     pub fn is_eof(&self) -> bool {
-        self.current >= self.input.len()
+        self.current >= self.buffer.len()
     }
 
     /// Returns the next character without advancing the cursor.
     pub fn peek(&self) -> Option<char> {
-        self.input[self.current..].chars().next()
+        self.buffer[self.current..].chars().next()
     }
 
     /// Returns the next n characters without advancing the cursor.
-    pub fn peek_str(&self, n: usize) -> &'input str {
+    pub fn peek_slice(&self, n: usize) -> TextSlice {
         if self.is_eof() {
-            return "";
+            return TextSlice::new(self.buffer.clone(), self.current, self.current);
         }
-        let remaining = &self.input[self.current..];
+        let remaining = &self.buffer[self.current..];
         let end = remaining
             .char_indices()
             .nth(n)
             .map(|(i, _)| self.current + i)
-            .unwrap_or_else(|| self.input.len());
-        &self.input[self.current..end]
+            .unwrap_or_else(|| self.buffer.len());
+        TextSlice::new(self.buffer.clone(), self.current, end)
+    }
+
+    /// Legacy helper mirroring the previous `peek_str` API.
+    pub fn peek_str(&self, n: usize) -> TextSlice {
+        self.peek_slice(n)
     }
 
     /// Advances the cursor by one character.
@@ -89,7 +102,7 @@ impl<'input> Cursor<'input> {
     }
 
     /// Consumes characters while the predicate returns true.
-    pub fn consume_while<F>(&mut self, mut predicate: F) -> &'input str
+    pub fn consume_while<F>(&mut self, mut predicate: F) -> TextSlice
     where
         F: FnMut(char) -> bool,
     {
@@ -100,12 +113,12 @@ impl<'input> Cursor<'input> {
             }
             self.advance();
         }
-        &self.input[start..self.current]
+        TextSlice::new(self.buffer.clone(), start, self.current)
     }
 
     /// Returns the remaining input from the current position.
-    pub fn remaining(&self) -> &'input str {
-        &self.input[self.current..]
+    pub fn remaining(&self) -> TextSlice {
+        TextSlice::new(self.buffer.clone(), self.current, self.buffer.len())
     }
 
     /// Resets the cursor to the beginning.

@@ -4,6 +4,8 @@ use lexer_framework::{
     DefaultContext, LexContext, Lexer, LexingRule, LexToken, Position,
 };
 
+type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
     Keyword { value: String, position: Position },
@@ -56,9 +58,9 @@ impl KeywordRule {
     }
 }
 
-impl<'input, Ctx> LexingRule<'input, Ctx, Token> for KeywordRule
+impl<Ctx> LexingRule<Ctx, Token> for KeywordRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -103,9 +105,9 @@ where
 // Identifier rule
 struct IdentRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, Token> for IdentRule
+impl<Ctx> LexingRule<Ctx, Token> for IdentRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -141,9 +143,9 @@ where
 // Number rule
 struct NumberRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, Token> for NumberRule
+impl<Ctx> LexingRule<Ctx, Token> for NumberRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -182,9 +184,9 @@ where
 // Operator rule
 struct OperatorRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, Token> for OperatorRule
+impl<Ctx> LexingRule<Ctx, Token> for OperatorRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -236,9 +238,9 @@ where
 // Whitespace rule
 struct WhitespaceRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, Token> for WhitespaceRule
+impl<Ctx> LexingRule<Ctx, Token> for WhitespaceRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
@@ -265,9 +267,9 @@ where
 // EOF rule
 struct EofRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, Token> for EofRule
+impl<Ctx> LexingRule<Ctx, Token> for EofRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<Token> {
         if ctx.is_eof() {
@@ -284,8 +286,8 @@ where
     }
 }
 
-fn create_lexer(input: &str) -> Lexer<'_, DefaultContext<'_>, Token> {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, Token> + '_>> = vec![
+fn create_lexer(input: &str) -> Lexer<DefaultContext, Token> {
+    let rules: RuleSet<Token> = vec![
         Box::new(KeywordRule::new()),
         Box::new(IdentRule),
         Box::new(NumberRule),

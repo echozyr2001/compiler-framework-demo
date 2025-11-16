@@ -54,9 +54,9 @@ impl LexToken for CalcToken {
 /// 匹配数字（浮点数）
 pub struct NumberRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for NumberRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for NumberRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<CalcToken> {
         let position = ctx.position();
@@ -117,9 +117,9 @@ where
 /// 如果需要动态配置操作符，可以参考 json_lexer.rs 中的 PunctuationRule 实现。
 pub struct OperatorRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for OperatorRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for OperatorRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     /// 快速检查：只有操作符字符才可能匹配
     ///
@@ -172,9 +172,9 @@ where
 /// 匹配空白字符
 pub struct WhitespaceRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for WhitespaceRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for WhitespaceRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<CalcToken> {
         if ctx.peek().is_some_and(|c| c.is_whitespace()) {
@@ -194,9 +194,9 @@ where
 /// 匹配 EOF
 pub struct EofRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, CalcToken> for EofRule
+impl<Ctx> LexingRule<Ctx, CalcToken> for EofRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<CalcToken> {
         if ctx.is_eof() {
@@ -213,8 +213,7 @@ where
     }
 }
 
-fn calc_rules<'input>(
-) -> Vec<Box<dyn LexingRule<'input, DefaultContext<'input>, CalcToken> + 'input>> {
+fn calc_rules() -> Vec<Box<dyn LexingRule<DefaultContext, CalcToken>>> {
     vec![
         Box::new(NumberRule),
         Box::new(OperatorRule),

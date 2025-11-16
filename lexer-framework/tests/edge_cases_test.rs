@@ -2,6 +2,8 @@
 
 use lexer_framework::{Cursor, DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 
+type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
+
 #[derive(Debug, Clone, PartialEq)]
 enum TestToken {
     Token { ch: char, position: Position },
@@ -33,9 +35,9 @@ impl LexToken for TestToken {
 
 struct CharRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for CharRule
+impl<Ctx> LexingRule<Ctx, TestToken> for CharRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         let ch = ctx.peek()?;
@@ -144,8 +146,7 @@ fn test_context_unicode_multibyte() {
 
 #[test]
 fn test_lexer_iterator_with_take() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(CharRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(CharRule)];
     let lexer = Lexer::from_str("hello", rules);
 
     let tokens: Vec<_> = lexer.take(3).collect();
@@ -154,8 +155,7 @@ fn test_lexer_iterator_with_take() {
 
 #[test]
 fn test_lexer_iterator_with_filter() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(CharRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(CharRule)];
     let lexer = Lexer::from_str("hello", rules);
 
     // Filter out 'e'
@@ -168,8 +168,7 @@ fn test_lexer_iterator_with_filter() {
 
 #[test]
 fn test_lexer_context_access() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(CharRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(CharRule)];
     let lexer = Lexer::from_str("hello", rules);
 
     // Should be able to access context
@@ -180,8 +179,7 @@ fn test_lexer_context_access() {
 
 #[test]
 fn test_lexer_context_mut_access() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(CharRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(CharRule)];
     let mut lexer = Lexer::from_str("hello", rules);
 
     // Should be able to mutate context (though not recommended in normal use)
@@ -265,7 +263,7 @@ fn test_position_offset_unicode() {
 
 #[test]
 fn test_lexer_empty_rules() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> = vec![];
+    let rules: RuleSet<TestToken> = vec![];
     let lexer = Lexer::from_str("hello", rules);
 
     let tokens: Vec<_> = lexer.collect();
@@ -274,8 +272,7 @@ fn test_lexer_empty_rules() {
 
 #[test]
 fn test_lexer_single_char() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(CharRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(CharRule)];
     let lexer = Lexer::from_str("a", rules);
 
     let tokens: Vec<_> = lexer.collect();

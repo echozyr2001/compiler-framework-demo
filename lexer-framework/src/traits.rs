@@ -24,9 +24,9 @@ pub trait LexToken: Clone + std::fmt::Debug {
 /// A lexing rule that operates on a context.
 /// This is the core of CGP design - rules are generic over context,
 /// allowing them to work with different lexer implementations.
-pub trait LexingRule<'input, Ctx, Tok>
+pub trait LexingRule<Ctx, Tok>
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     /// Attempts to match and consume a token from the context.
     /// Returns Some(token) if matched, None otherwise.

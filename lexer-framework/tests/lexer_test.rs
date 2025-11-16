@@ -2,6 +2,8 @@ use lexer_framework::{
     DefaultContext, LexContext, Lexer, LexingRule, LexToken, Position,
 };
 
+type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TestToken {
     A { position: Position },
@@ -40,9 +42,9 @@ impl LexToken for TestToken {
 // Rule that matches 'a'
 struct ARule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for ARule
+impl<Ctx> LexingRule<Ctx, TestToken> for ARule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         if ctx.peek() == Some('a') {
@@ -66,9 +68,9 @@ where
 // Rule that matches 'b'
 struct BRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for BRule
+impl<Ctx> LexingRule<Ctx, TestToken> for BRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         if ctx.peek() == Some('b') {
@@ -92,9 +94,9 @@ where
 // Rule that matches 'c' (no quick_check)
 struct CRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for CRule
+impl<Ctx> LexingRule<Ctx, TestToken> for CRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         if ctx.peek() == Some('c') {
@@ -115,9 +117,9 @@ where
 // EOF rule
 struct EofRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for EofRule
+impl<Ctx> LexingRule<Ctx, TestToken> for EofRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         if ctx.is_eof() {
@@ -136,7 +138,7 @@ where
 
 #[test]
 fn test_lexer_new() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule)];
     let ctx = DefaultContext::new("a");
     let lexer = Lexer::new(ctx, rules);
@@ -145,7 +147,7 @@ fn test_lexer_new() {
 
 #[test]
 fn test_lexer_from_str() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule)];
     let lexer = Lexer::from_str("a", rules);
     assert!(!lexer.context().is_eof());
@@ -153,7 +155,7 @@ fn test_lexer_from_str() {
 
 #[test]
 fn test_lexer_next_token_single() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule)];
     let mut lexer = Lexer::from_str("a", rules);
     
@@ -163,7 +165,7 @@ fn test_lexer_next_token_single() {
 
 #[test]
 fn test_lexer_next_token_multiple() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(BRule)];
     let mut lexer = Lexer::from_str("ab", rules);
     
@@ -184,7 +186,7 @@ fn test_lexer_next_token_multiple() {
 #[test]
 fn test_lexer_priority() {
     // Both rules can match 'a', but ARule has higher priority
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(BRule), Box::new(ARule)]; // BRule added first, but ARule has higher priority
     let mut lexer = Lexer::from_str("a", rules);
     
@@ -196,7 +198,7 @@ fn test_lexer_priority() {
 #[test]
 fn test_lexer_quick_check_optimization() {
     // ARule has quick_check that returns Some(false) for 'b'
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(BRule)];
     let mut lexer = Lexer::from_str("b", rules);
     
@@ -207,7 +209,7 @@ fn test_lexer_quick_check_optimization() {
 
 #[test]
 fn test_lexer_no_match() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(BRule)];
     let mut lexer = Lexer::from_str("x", rules);
     
@@ -218,7 +220,7 @@ fn test_lexer_no_match() {
 
 #[test]
 fn test_lexer_eof() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(EofRule)];
     let mut lexer = Lexer::from_str("a", rules);
     
@@ -236,7 +238,7 @@ fn test_lexer_eof() {
 
 #[test]
 fn test_lexer_tokenize() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(BRule), Box::new(EofRule)];
     let mut lexer = Lexer::from_str("ab", rules);
     
@@ -256,7 +258,7 @@ fn test_lexer_tokenize() {
 
 #[test]
 fn test_lexer_iterator() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(BRule)];
     let lexer = Lexer::from_str("ab", rules);
     
@@ -273,7 +275,7 @@ fn test_lexer_iterator() {
 
 #[test]
 fn test_lexer_iterator_take() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(ARule), Box::new(BRule)];
     let lexer = Lexer::from_str("ab", rules);
     
@@ -284,7 +286,7 @@ fn test_lexer_iterator_take() {
 
 #[test]
 fn test_lexer_empty_input() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(EofRule)];
     let mut lexer = Lexer::from_str("", rules);
     
@@ -295,7 +297,7 @@ fn test_lexer_empty_input() {
 #[test]
 fn test_lexer_rule_without_quick_check() {
     // CRule doesn't implement quick_check, should still work
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CRule)];
     let mut lexer = Lexer::from_str("c", rules);
     
@@ -308,9 +310,9 @@ fn test_lexer_checkpoint_restore() {
     // Rule that tries to match but fails, should restore cursor
     struct FailingRule;
 
-    impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for FailingRule
+    impl<Ctx> LexingRule<Ctx, TestToken> for FailingRule
     where
-        Ctx: LexContext<'input>,
+        Ctx: LexContext,
     {
         fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
             // Try to match 'x' but fail
@@ -327,7 +329,7 @@ fn test_lexer_checkpoint_restore() {
         }
     }
 
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(FailingRule), Box::new(ARule)];
     let mut lexer = Lexer::from_str("a", rules);
     

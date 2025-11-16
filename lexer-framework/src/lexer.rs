@@ -4,20 +4,20 @@ use std::cmp::Reverse;
 
 /// A lexer that applies rules in priority order.
 /// This is the main orchestrator in the CGP design.
-pub struct Lexer<'input, Ctx, Tok>
+pub struct Lexer<Ctx, Tok>
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     context: Ctx,
-    rules: Vec<Box<dyn LexingRule<'input, Ctx, Tok> + 'input>>,
+    rules: Vec<Box<dyn LexingRule<Ctx, Tok>>>,
 }
 
-impl<'input, Ctx, Tok> Lexer<'input, Ctx, Tok>
+impl<Ctx, Tok> Lexer<Ctx, Tok>
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     /// Creates a new lexer with the given context and rules.
-    pub fn new(context: Ctx, rules: Vec<Box<dyn LexingRule<'input, Ctx, Tok> + 'input>>) -> Self {
+    pub fn new(context: Ctx, rules: Vec<Box<dyn LexingRule<Ctx, Tok>>>) -> Self {
         // Sort rules by priority (highest first)
         let mut sorted_rules = rules;
         sorted_rules.sort_by_key(|rule| Reverse(rule.priority()));
@@ -72,11 +72,11 @@ where
     }
 }
 
-impl<'input, Tok> Lexer<'input, DefaultContext<'input>, Tok> {
+impl<Tok> Lexer<DefaultContext, Tok> {
     /// Creates a new lexer with a default context from an input string.
-    pub fn from_str(
-        input: &'input str,
-        rules: Vec<Box<dyn LexingRule<'input, DefaultContext<'input>, Tok> + 'input>>,
+    pub fn from_str<S: Into<String>>(
+        input: S,
+        rules: Vec<Box<dyn LexingRule<DefaultContext, Tok>>>,
     ) -> Self {
         Self::new(DefaultContext::new(input), rules)
     }
@@ -84,9 +84,9 @@ impl<'input, Tok> Lexer<'input, DefaultContext<'input>, Tok> {
 
 /// Make Lexer implement Iterator for stream-like processing.
 /// This allows using the lexer directly in for loops and iterator chains.
-impl<'input, Ctx, Tok> Iterator for Lexer<'input, Ctx, Tok>
+impl<Ctx, Tok> Iterator for Lexer<Ctx, Tok>
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     type Item = Tok;
 
@@ -105,28 +105,25 @@ where
                 return None;
             }
             Some(token)
+        } else if self.context.cursor().offset() == offset_before {
+            // Stuck - no rule matched and cursor didn't advance
+            eprintln!(
+                "Error: No rule matched character at offset {}",
+                offset_before
+            );
+            eprintln!(
+                "Remaining input: {:?}",
+                self.context
+                    .cursor()
+                    .remaining()
+                    .chars()
+                    .take(10)
+                    .collect::<String>()
+            );
+            None
         } else {
-            // No rule matched, check if we can make progress
-            if self.context.cursor().offset() == offset_before {
-                // Stuck - no rule matched and cursor didn't advance
-                eprintln!(
-                    "Error: No rule matched character at offset {}",
-                    offset_before
-                );
-                eprintln!(
-                    "Remaining input: {:?}",
-                    self.context
-                        .cursor()
-                        .remaining()
-                        .chars()
-                        .take(10)
-                        .collect::<String>()
-                );
-                None
-            } else {
-                // Progress was made but no token returned (unusual case)
-                None
-            }
+            // Progress was made but no token returned (unusual case)
+            None
         }
     }
 

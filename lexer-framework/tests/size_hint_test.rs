@@ -31,9 +31,9 @@ impl LexToken for TestToken {
 
 struct CharRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for CharRule
+impl<Ctx> LexingRule<Ctx, TestToken> for CharRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         let ch = ctx.peek()?;
@@ -50,7 +50,7 @@ where
 #[test]
 fn test_size_hint_ascii() {
     let input = "hello world";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CharRule)];
     let lexer = Lexer::from_str(input, rules);
 
@@ -63,7 +63,7 @@ fn test_size_hint_ascii() {
 #[test]
 fn test_size_hint_chinese() {
     let input = "你好世界";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CharRule)];
     let lexer = Lexer::from_str(input, rules);
 
@@ -76,7 +76,7 @@ fn test_size_hint_chinese() {
 #[test]
 fn test_size_hint_emoji() {
     let input = "😀🎉🚀";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CharRule)];
     let lexer = Lexer::from_str(input, rules);
 
@@ -91,7 +91,7 @@ fn test_size_hint_emoji_combination() {
     // Test emoji with zero-width joiners (ZWJ) - family emoji
     // 👨‍👩‍👧‍👦 = 1 visual character, but 7 Unicode scalar values
     let input = "👨‍👩‍👧‍👦";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CharRule)];
     let lexer = Lexer::from_str(input, rules);
 
@@ -107,7 +107,7 @@ fn test_size_hint_emoji_combination() {
 fn test_size_hint_accented_chars() {
     // Test accented characters: é can be 1 character (composed) or 2 chars (decomposed)
     let input = "café résumé";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CharRule)];
     let lexer = Lexer::from_str(input, rules);
 
@@ -122,7 +122,7 @@ fn test_size_hint_accented_chars() {
 #[test]
 fn test_size_hint_mixed() {
     let input = "Hello 你好 😀!";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
+    let rules: RuleSet<TestToken> =
         vec![Box::new(CharRule)];
     let lexer = Lexer::from_str(input, rules);
 

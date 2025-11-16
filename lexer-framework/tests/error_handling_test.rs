@@ -4,6 +4,8 @@ use lexer_framework::{
     DefaultContext, LexContext, Lexer, LexingRule, LexToken, Position,
 };
 
+type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
+
 #[derive(Debug, Clone, PartialEq)]
 enum TestToken {
     Char { ch: char, position: Position },
@@ -36,9 +38,9 @@ impl LexToken for TestToken {
 // Rule that never matches
 struct NeverMatchRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for NeverMatchRule
+impl<Ctx> LexingRule<Ctx, TestToken> for NeverMatchRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, _ctx: &mut Ctx) -> Option<TestToken> {
         None
@@ -56,9 +58,9 @@ where
 // Rule that matches but doesn't advance cursor (buggy rule)
 struct BuggyRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for BuggyRule
+impl<Ctx> LexingRule<Ctx, TestToken> for BuggyRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         // Bug: Returns token but doesn't advance cursor
@@ -77,9 +79,9 @@ where
 // Normal rule
 struct NormalRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for NormalRule
+impl<Ctx> LexingRule<Ctx, TestToken> for NormalRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<TestToken> {
         let ch = ctx.peek()?;
@@ -96,7 +98,7 @@ where
 #[test]
 fn test_no_rules() {
     // Empty rules list
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> = vec![];
+    let rules: RuleSet<TestToken> = vec![];
     let mut lexer = Lexer::from_str("hello", rules);
     
     // Should return None since no rules can match
@@ -106,8 +108,7 @@ fn test_no_rules() {
 #[test]
 fn test_no_matching_rules() {
     // Rules that never match
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(NeverMatchRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(NeverMatchRule)];
     let mut lexer = Lexer::from_str("hello", rules);
     
     // Should return None
@@ -122,8 +123,7 @@ fn test_no_matching_rules() {
 fn test_rule_that_doesnt_advance() {
     // Test buggy rule that doesn't advance cursor
     // The Iterator implementation should detect this and stop
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(BuggyRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(BuggyRule)];
     let mut lexer = Lexer::from_str("a", rules);
     
     // First call should work (but is buggy)
@@ -141,9 +141,9 @@ fn test_multiple_quick_check_false() {
     // All rules return quick_check false
     struct AlwaysFalseRule;
 
-    impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for AlwaysFalseRule
+    impl<Ctx> LexingRule<Ctx, TestToken> for AlwaysFalseRule
     where
-        Ctx: LexContext<'input>,
+        Ctx: LexContext,
     {
         fn quick_check(&self, _first_char: Option<char>) -> Option<bool> {
             Some(false) // Always says it won't match
@@ -158,8 +158,7 @@ fn test_multiple_quick_check_false() {
         }
     }
 
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(AlwaysFalseRule), Box::new(AlwaysFalseRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(AlwaysFalseRule), Box::new(AlwaysFalseRule)];
     let mut lexer = Lexer::from_str("a", rules);
     
     // All rules skipped, should return None
@@ -170,8 +169,7 @@ fn test_multiple_quick_check_false() {
 fn test_very_long_input() {
     // Test with very long input
     let long_input = "a".repeat(10000);
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(NormalRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(NormalRule)];
     let lexer = Lexer::from_str(&long_input, rules);
     
     // Should handle long input correctly
@@ -197,8 +195,7 @@ fn test_unicode_edge_cases() {
     ];
 
     for (input, _description) in test_cases {
-        let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-            vec![Box::new(NormalRule)];
+        let rules: RuleSet<TestToken> = vec![Box::new(NormalRule)];
         let mut lexer = Lexer::from_str(input, rules);
         
         // Should not panic
@@ -210,8 +207,7 @@ fn test_unicode_edge_cases() {
 #[test]
 fn test_position_accuracy() {
     let input = "abc\ndef\nghi";
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(NormalRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(NormalRule)];
     let lexer = Lexer::from_str(input, rules);
     
     let tokens: Vec<_> = lexer.take(10).collect();
@@ -261,9 +257,9 @@ fn test_quick_check_with_eof() {
     // Test quick_check behavior with EOF
     struct EofAwareRule;
 
-    impl<'input, Ctx> LexingRule<'input, Ctx, TestToken> for EofAwareRule
+    impl<Ctx> LexingRule<Ctx, TestToken> for EofAwareRule
     where
-        Ctx: LexContext<'input>,
+        Ctx: LexContext,
     {
         fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
             // When EOF (None), return None (unknown)
@@ -286,22 +282,19 @@ fn test_quick_check_with_eof() {
     }
 
     // Test with non-empty input
-    let rules1: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(EofAwareRule)];
+    let rules1: RuleSet<TestToken> = vec![Box::new(EofAwareRule)];
     let mut lexer1 = Lexer::from_str("a", rules1);
     assert!(lexer1.next_token().is_some());
     
     // Test with empty input (EOF)
-    let rules2: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(EofAwareRule)];
+    let rules2: RuleSet<TestToken> = vec![Box::new(EofAwareRule)];
     let mut lexer2 = Lexer::from_str("", rules2);
     assert_eq!(lexer2.next_token(), None);
 }
 
 #[test]
 fn test_size_hint_updates() {
-    let rules: Vec<Box<dyn LexingRule<'_, DefaultContext<'_>, TestToken> + '_>> =
-        vec![Box::new(NormalRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(NormalRule)];
     let mut lexer = Lexer::from_str("hello world", rules);
     
     let (lower1, upper1) = lexer.size_hint();

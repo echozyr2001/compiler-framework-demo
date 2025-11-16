@@ -58,9 +58,9 @@ impl LexToken for JsonToken {
 /// 匹配 JSON 字符串（支持转义字符）
 pub struct StringRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, JsonToken> for StringRule
+impl<Ctx> LexingRule<Ctx, JsonToken> for StringRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<JsonToken> {
         if ctx.peek() != Some('"') {
@@ -117,9 +117,9 @@ where
 /// 匹配数字
 pub struct NumberRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, JsonToken> for NumberRule
+impl<Ctx> LexingRule<Ctx, JsonToken> for NumberRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<JsonToken> {
         let position = ctx.position();
@@ -202,9 +202,9 @@ where
 /// 匹配布尔值和 null
 pub struct KeywordRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, JsonToken> for KeywordRule
+impl<Ctx> LexingRule<Ctx, JsonToken> for KeywordRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<JsonToken> {
         let position = ctx.position();
@@ -244,9 +244,9 @@ where
 /// 匹配标点符号
 pub struct PunctuationRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, JsonToken> for PunctuationRule
+impl<Ctx> LexingRule<Ctx, JsonToken> for PunctuationRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<JsonToken> {
         use JsonToken::*;
@@ -275,9 +275,9 @@ where
 /// 匹配空白字符
 pub struct WhitespaceRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, JsonToken> for WhitespaceRule
+impl<Ctx> LexingRule<Ctx, JsonToken> for WhitespaceRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<JsonToken> {
         let position = ctx.position();
@@ -301,9 +301,9 @@ where
 /// 匹配 EOF
 pub struct EofRule;
 
-impl<'input, Ctx> LexingRule<'input, Ctx, JsonToken> for EofRule
+impl<Ctx> LexingRule<Ctx, JsonToken> for EofRule
 where
-    Ctx: LexContext<'input>,
+    Ctx: LexContext,
 {
     fn try_match(&mut self, ctx: &mut Ctx) -> Option<JsonToken> {
         if ctx.is_eof() {
@@ -320,8 +320,7 @@ where
     }
 }
 
-fn json_rules<'input>(
-) -> Vec<Box<dyn LexingRule<'input, DefaultContext<'input>, JsonToken> + 'input>> {
+fn json_rules() -> Vec<Box<dyn LexingRule<DefaultContext, JsonToken>>> {
     vec![
         Box::new(StringRule),
         Box::new(NumberRule),
