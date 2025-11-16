@@ -29,14 +29,61 @@
 //! 2. 让 GroupRule 能够递归使用规则系统解析括号内的完整表达式
 //! 这需要改进架构，让规则能够访问规则列表并递归创建 Parser。
 
+#[cfg(feature = "streaming")]
+use lexer_framework::TokenProducer;
 use lexer_framework::{
     DefaultContext as LexContext, LexContext as LexContextTrait, LexToken, Lexer, LexingRule,
     Position as LexPosition,
 };
 use parser_framework::{AstNode, DefaultContext, ParseContext, Parser, ParsingRule, Position};
+#[cfg(feature = "streaming")]
+use parser_framework::{StreamingParseContext, TokenConsumer};
 
 type CalcLexerRules = Vec<Box<dyn LexingRule<LexContext, CalcToken>>>;
 type CalcParserRules = Vec<Box<dyn ParsingRule<DefaultContext<CalcToken>, CalcToken, Expr>>>;
+
+fn build_parser_rules() -> CalcParserRules {
+    vec![
+        Box::new(GroupRule),
+        Box::new(UnaryRule),
+        Box::new(BinaryRule::new(
+            CalcToken::Power {
+                position: LexPosition::new(),
+            },
+            BinaryOp::Power,
+            12,
+        )),
+        Box::new(BinaryRule::new(
+            CalcToken::Multiply {
+                position: LexPosition::new(),
+            },
+            BinaryOp::Multiply,
+            10,
+        )),
+        Box::new(BinaryRule::new(
+            CalcToken::Divide {
+                position: LexPosition::new(),
+            },
+            BinaryOp::Divide,
+            10,
+        )),
+        Box::new(BinaryRule::new(
+            CalcToken::Plus {
+                position: LexPosition::new(),
+            },
+            BinaryOp::Add,
+            5,
+        )),
+        Box::new(BinaryRule::new(
+            CalcToken::Minus {
+                position: LexPosition::new(),
+            },
+            BinaryOp::Subtract,
+            5,
+        )),
+        Box::new(NumberParserRule),
+    ]
+}
 
 // ============================================================================
 // Token 定义（从 lexer-example 复制，但为了完整性包含在这里）
@@ -814,46 +861,7 @@ fn main() {
         // 注意：规则按优先级从高到低排序
         // 优先级高的规则先尝试，这样可以先匹配复杂表达式（如二元运算、括号）
         // 数字规则优先级最低，作为后备规则
-        let parser_rules: CalcParserRules = vec![
-            Box::new(GroupRule), // 优先级 25，最高（括号优先级最高）
-            Box::new(UnaryRule), // 优先级 15
-            Box::new(BinaryRule::new(
-                CalcToken::Power {
-                    position: LexPosition::new(),
-                },
-                BinaryOp::Power,
-                12, // 幂运算优先级高
-            )),
-            Box::new(BinaryRule::new(
-                CalcToken::Multiply {
-                    position: LexPosition::new(),
-                },
-                BinaryOp::Multiply,
-                10, // 乘除优先级中等
-            )),
-            Box::new(BinaryRule::new(
-                CalcToken::Divide {
-                    position: LexPosition::new(),
-                },
-                BinaryOp::Divide,
-                10, // 乘除优先级中等
-            )),
-            Box::new(BinaryRule::new(
-                CalcToken::Plus {
-                    position: LexPosition::new(),
-                },
-                BinaryOp::Add,
-                5, // 加减优先级较低
-            )),
-            Box::new(BinaryRule::new(
-                CalcToken::Minus {
-                    position: LexPosition::new(),
-                },
-                BinaryOp::Subtract,
-                5, // 加减优先级较低
-            )),
-            Box::new(NumberParserRule), // 优先级 1，最低（作为原子表达式）
-        ];
+        let parser_rules = build_parser_rules();
 
         let context = DefaultContext::from_token_iter(tokens);
         let mut parser = Parser::new(context, parser_rules);
@@ -871,6 +879,67 @@ fn main() {
 
         println!("\n{}", "=".repeat(50));
         println!();
+    }
+
+    #[cfg(feature = "streaming")]
+    {
+        println!("=== 流式解析管道示例 ===");
+        let controller = CalcPipeline::new();
+        let inputs = ["3 + 4 * 2", "(1 + 2) * 3", "10 / 2 + 5"];
+        for expr in inputs {
+            println!("Pipeline 输入: {}", expr);
+            let asts = controller.run(expr);
+            for (idx, ast) in asts.iter().enumerate() {
+                println!("  AST {}: {:#?}", idx + 1, ast);
+            }
+            println!("{}", "-".repeat(50));
+        }
+    }
+}
+
+#[cfg(feature = "streaming")]
+struct CalcPipeline;
+
+#[cfg(feature = "streaming")]
+impl CalcPipeline {
+    fn new() -> Self {
+        Self
+    }
+
+    fn run(&self, input: &str) -> Vec<Expr> {
+        let lexer_rules = build_lexer_rules();
+        let parser_rules = build_parser_rules();
+
+        let mut lexer = Lexer::from_str(input.to_owned(), lexer_rules);
+        let context = StreamingParseContext::new();
+        let mut parser = Parser::new(context, parser_rules);
+
+        let mut asts = Vec::new();
+        while let Some(token) = lexer.poll_token() {
+            if let Some(filtered) = filter_streaming_token(token) {
+                asts.extend(parser.push_token(filtered));
+            }
+        }
+        asts.extend(parser.finish());
+        asts
+    }
+}
+
+#[cfg(feature = "streaming")]
+fn build_lexer_rules() -> CalcLexerRules {
+    vec![
+        Box::new(NumberRule),
+        Box::new(OperatorRule),
+        Box::new(WhitespaceRule),
+        Box::new(EofRule),
+    ]
+}
+
+#[cfg(feature = "streaming")]
+fn filter_streaming_token(token: CalcToken) -> Option<CalcToken> {
+    match token {
+        CalcToken::Whitespace { .. } | CalcToken::Eof { .. } => None,
+        other => Some(other),
     }
 }
 

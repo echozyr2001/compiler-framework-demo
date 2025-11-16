@@ -154,6 +154,27 @@ let mut parser = Parser::from_tokens(tokens, rules);
 let nodes = parser.parse();
 ```
 
+## Streaming 支持 (`streaming` feature)
+
+启用 `streaming` feature 后，可使用 `StreamingParseContext` 与 `TokenConsumer`
+实现增量解析，将 token 按需推入：
+
+```rust
+use parser_framework::{Parser, StreamingParseContext, TokenConsumer};
+
+let context = StreamingParseContext::new();
+let mut parser = Parser::new(context, rules);
+
+for token in token_stream {
+    let asts = parser.push_token(token);
+    // 处理已完成的 AST 节点
+}
+
+let remaining = parser.finish();
+```
+
+这使得 lexer → parser 可以在同一条数据流上协同工作，实现真正的流式解析。
+
 ## 特性
 
 - ✅ **CGP 设计模式**: 上下文与规则解耦

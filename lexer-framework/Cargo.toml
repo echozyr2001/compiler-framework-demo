@@ -7,6 +7,10 @@ edition = "2021"
 name = "lexer_framework"
 path = "src/lib.rs"
 
+[features]
+default = []
+streaming = []
+
 [dependencies]
 common-framework = { path = "../common-framework" }
 

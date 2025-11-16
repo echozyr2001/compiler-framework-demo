@@ -14,3 +14,7 @@ path = "src/bin/simple_parser.rs"
 [dependencies]
 lexer-framework = { path = "../lexer-framework" }
 parser-framework = { path = "../parser-framework" }
+
+[features]
+default = []
+streaming = ["lexer-framework/streaming", "parser-framework/streaming"]

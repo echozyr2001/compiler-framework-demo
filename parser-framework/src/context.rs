@@ -104,10 +104,107 @@ where
 ///
 /// Users can implement a trait for their token types to provide position information,
 /// or use the lexer-framework's LexToken trait if available.
-fn extract_position_from_token<T>(_token: &T) -> Option<Position> {
+pub(crate) fn extract_position_from_token<T>(_token: &T) -> Option<Position> {
     // For now, return None - users should implement position extraction
     // for their token types, or use a helper trait
     None
+}
+
+#[cfg(feature = "streaming")]
+/// A context that supports streaming tokens by allowing tokens to be pushed
+/// after the parser has been constructed.
+#[derive(Debug)]
+pub struct StreamingParseContext<Tok>
+where
+    Tok: Clone + std::fmt::Debug,
+{
+    tokens: Vec<Tok>,
+    current: usize,
+    finished: bool,
+    position: Position,
+}
+
+#[cfg(feature = "streaming")]
+impl<Tok> StreamingParseContext<Tok>
+where
+    Tok: Clone + std::fmt::Debug,
+{
+    pub fn new() -> Self {
+        Self {
+            tokens: Vec::new(),
+            current: 0,
+            finished: false,
+            position: Position::default(),
+        }
+    }
+
+    /// Pushes a new token into the context.
+    pub fn push_token(&mut self, token: Tok) {
+        if let Some(pos) = extract_position_from_token(&token) {
+            self.position = pos;
+        }
+        self.tokens.push(token);
+    }
+
+    /// Marks the stream as finished (no more tokens will arrive).
+    pub fn finish(&mut self) {
+        self.finished = true;
+    }
+}
+
+#[cfg(feature = "streaming")]
+impl<Tok> ParseContext<Tok> for StreamingParseContext<Tok>
+where
+    Tok: Clone + std::fmt::Debug,
+{
+    fn peek(&self) -> Option<&Tok> {
+        self.tokens.get(self.current)
+    }
+
+    fn peek_at(&self, offset: usize) -> Option<&Tok> {
+        self.tokens.get(self.current + offset)
+    }
+
+    fn advance(&mut self) -> Option<Tok> {
+        if self.current >= self.tokens.len() {
+            return None;
+        }
+
+        let token = self.tokens[self.current].clone();
+
+        if let Some(position) = extract_position_from_token(&token) {
+            self.position = position;
+        }
+
+        self.current += 1;
+        Some(token)
+    }
+
+    fn position(&self) -> Position {
+        if let Some(token) = self.peek() {
+            if let Some(token_position) = extract_position_from_token(token) {
+                return token_position;
+            }
+        }
+        self.position
+    }
+
+    fn is_eof(&self) -> bool {
+        self.finished && self.current >= self.tokens.len()
+    }
+
+    fn token_index(&self) -> usize {
+        self.current
+    }
+
+    fn checkpoint(&self) -> Checkpoint {
+        Checkpoint::new(self.current, self.position)
+    }
+
+    fn restore(&mut self, checkpoint: Checkpoint) {
+        self.current = checkpoint.token_index();
+        self.position = checkpoint.position();
+    }
 }
 
 impl<Tok> ParseContext<Tok> for DefaultContext<Tok>
