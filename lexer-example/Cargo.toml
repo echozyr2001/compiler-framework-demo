@@ -1,0 +1,16 @@
+[package]
+name = "lexer-example"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "json-lexer"
+path = "src/bin/json_lexer.rs"
+
+[[bin]]
+name = "calc-lexer"
+path = "src/bin/calc_lexer.rs"
+
+[dependencies]
+lexer-framework = { path = "../lexer-framework" }
+
