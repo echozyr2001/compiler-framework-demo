@@ -30,19 +30,30 @@
 //! 这需要改进架构，让规则能够访问规则列表并递归创建 Parser。
 
 #[cfg(feature = "streaming")]
+use common_framework::PipelineMessage;
+#[cfg(feature = "streaming")]
 use lexer_framework::TokenProducer;
 use lexer_framework::{
     DefaultContext as LexContext, LexContext as LexContextTrait, LexToken, Lexer, LexingRule,
     Position as LexPosition,
 };
+#[cfg(feature = "streaming")]
+use parser_framework::StreamingParseContext;
 use parser_framework::{AstNode, DefaultContext, ParseContext, Parser, ParsingRule, Position};
 #[cfg(feature = "streaming")]
-use parser_framework::{StreamingParseContext, TokenConsumer};
+use pipeline_core::Pipeline;
 
 type CalcLexerRules = Vec<Box<dyn LexingRule<LexContext, CalcToken>>>;
 type CalcParserRules = Vec<Box<dyn ParsingRule<DefaultContext<CalcToken>, CalcToken, Expr>>>;
 
 fn build_parser_rules() -> CalcParserRules {
+    build_parser_rules_for_ctx::<DefaultContext<CalcToken>>()
+}
+
+fn build_parser_rules_for_ctx<Ctx>() -> Vec<Box<dyn ParsingRule<Ctx, CalcToken, Expr>>>
+where
+    Ctx: ParseContext<CalcToken> + 'static,
+{
     vec![
         Box::new(GroupRule),
         Box::new(UnaryRule),
@@ -908,20 +919,12 @@ impl CalcPipeline {
 
     fn run(&self, input: &str) -> Vec<Expr> {
         let lexer_rules = build_lexer_rules();
-        let parser_rules = build_parser_rules();
+        let parser_rules = build_parser_rules_for_ctx::<StreamingParseContext<CalcToken>>();
 
-        let mut lexer = Lexer::from_str(input.to_owned(), lexer_rules);
-        let context = StreamingParseContext::new();
-        let mut parser = Parser::new(context, parser_rules);
+        let lexer = FilteringProducer::new(Lexer::from_str(input.to_owned(), lexer_rules));
+        let parser = Parser::new(StreamingParseContext::new(), parser_rules);
 
-        let mut asts = Vec::new();
-        while let Some(token) = lexer.poll_token() {
-            if let Some(filtered) = filter_streaming_token(token) {
-                asts.extend(parser.push_token(filtered));
-            }
-        }
-        asts.extend(parser.finish());
-        asts
+        Pipeline::new(lexer, parser).run()
     }
 }
 
@@ -940,6 +943,37 @@ fn filter_streaming_token(token: CalcToken) -> Option<CalcToken> {
     match token {
         CalcToken::Whitespace { .. } | CalcToken::Eof { .. } => None,
         other => Some(other),
+    }
+}
+
+#[cfg(feature = "streaming")]
+struct FilteringProducer<L> {
+    inner: L,
+}
+
+#[cfg(feature = "streaming")]
+impl<L> FilteringProducer<L> {
+    fn new(inner: L) -> Self {
+        Self { inner }
+    }
+}
+
+#[cfg(feature = "streaming")]
+impl<L> TokenProducer<CalcToken> for FilteringProducer<L>
+where
+    L: TokenProducer<CalcToken>,
+{
+    fn poll_token(&mut self) -> Option<CalcToken> {
+        while let Some(token) = self.inner.poll_token() {
+            if let Some(filtered) = filter_streaming_token(token) {
+                return Some(filtered);
+            }
+        }
+        None
+    }
+
+    fn on_message(&mut self, message: &PipelineMessage) {
+        self.inner.on_message(message);
     }
 }
 

@@ -24,8 +24,10 @@ dependencies = [
 name = "parser-example"
 version = "0.1.0"
 dependencies = [
+ "common-framework",
  "lexer-framework",
  "parser-framework",
+ "pipeline-core",
 ]
 
 [[package]]
@@ -33,4 +35,13 @@ name = "parser-framework"
 version = "0.1.0"
 dependencies = [
  "common-framework",
+]
+
+[[package]]
+name = "pipeline-core"
+version = "0.1.0"
+dependencies = [
+ "common-framework",
+ "lexer-framework",
+ "parser-framework",
 ]

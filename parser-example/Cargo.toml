@@ -12,9 +12,11 @@ name = "simple-parser"
 path = "src/bin/simple_parser.rs"
 
 [dependencies]
+common-framework = { path = "../common-framework" }
 lexer-framework = { path = "../lexer-framework" }
 parser-framework = { path = "../parser-framework" }
+pipeline-core = { path = "../pipeline-core", optional = true }
 
 [features]
 default = []
-streaming = ["lexer-framework/streaming", "parser-framework/streaming"]
+streaming = ["lexer-framework/streaming", "parser-framework/streaming", "pipeline-core"]

@@ -1,5 +1,12 @@
 [workspace]
-members = ["lexer-framework", "lexer-example", "parser-framework", "parser-example", "common-framework"]
+members = [
+    "lexer-framework",
+    "lexer-example",
+    "parser-framework",
+    "parser-example",
+    "common-framework",
+    "pipeline-core",
+]
 resolver = "2"
 
 [workspace.package]

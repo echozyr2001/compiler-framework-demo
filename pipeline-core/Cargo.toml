@@ -1,0 +1,10 @@
+[package]
+name = "pipeline-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common-framework = { path = "../common-framework" }
+lexer-framework = { path = "../lexer-framework", features = ["streaming"] }
+parser-framework = { path = "../parser-framework", features = ["streaming"] }
+
