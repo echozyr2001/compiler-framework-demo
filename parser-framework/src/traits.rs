@@ -17,9 +17,9 @@ pub trait AstNode: Clone + std::fmt::Debug {
 /// A parsing rule that operates on a context.
 /// This is the core of CGP design - rules are generic over context,
 /// allowing them to work with different parser implementations.
-pub trait ParsingRule<'input, Ctx, Tok, Ast>
+pub trait ParsingRule<Ctx, Tok, Ast>
 where
-    Ctx: ParseContext<'input, Tok>,
+    Ctx: ParseContext<Tok>,
     Tok: Clone + std::fmt::Debug,
     Ast: AstNode,
 {

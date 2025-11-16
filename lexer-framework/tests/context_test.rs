@@ -46,11 +46,11 @@ fn test_default_context_checkpoint_restore() {
     let mut ctx = DefaultContext::new("hello");
     ctx.advance(); // 'h'
     ctx.advance(); // 'e'
-    
+
     let checkpoint = ctx.checkpoint();
     ctx.advance(); // 'l'
     ctx.advance(); // 'l'
-    
+
     ctx.restore(checkpoint);
     assert_eq!(ctx.peek(), Some('l'));
     assert_eq!(ctx.position().column, 3);
@@ -72,4 +72,3 @@ fn test_default_context_empty() {
     assert!(ctx.is_eof());
     assert_eq!(ctx.peek(), None);
 }
-

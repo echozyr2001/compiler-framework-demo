@@ -1,8 +1,6 @@
 //! 集成测试：测试框架的完整使用场景
 
-use lexer_framework::{
-    DefaultContext, LexContext, Lexer, LexingRule, LexToken, Position,
-};
+use lexer_framework::{DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 
 type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
 
@@ -127,7 +125,7 @@ where
 
             let mut value = String::with_capacity(1 + rest.len());
             value.push(first);
-            value.push_str(rest);
+            value.push_str(rest.as_ref());
 
             Some(Token::Ident { value, position })
         } else {
@@ -164,7 +162,7 @@ where
 
             let mut value_str = String::with_capacity(1 + digits.len());
             value_str.push(first);
-            value_str.push_str(digits);
+            value_str.push_str(digits.as_ref());
 
             if let Ok(value) = value_str.parse::<i64>() {
                 Some(Token::Number { value, position })
@@ -190,9 +188,8 @@ where
 {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
-            '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!' | '(' | ')' | '{' | '}' | ';' | '&' | '|' => {
-                Some(true)
-            }
+            '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!' | '(' | ')' | '{' | '}' | ';' | '&'
+            | '|' => Some(true),
             _ => Some(false),
         }
     }
@@ -360,15 +357,15 @@ fn test_integration_complex_expression() {
         .collect();
 
     // Check for multi-character operators
-    let has_gt = tokens.iter().any(|t| {
-        matches!(t, Token::Operator { value, .. } if value == ">")
-    });
-    let has_and = tokens.iter().any(|t| {
-        matches!(t, Token::Operator { value, .. } if value == "&&")
-    });
-    let has_lt = tokens.iter().any(|t| {
-        matches!(t, Token::Operator { value, .. } if value == "<")
-    });
+    let has_gt = tokens
+        .iter()
+        .any(|t| matches!(t, Token::Operator { value, .. } if value == ">"));
+    let has_and = tokens
+        .iter()
+        .any(|t| matches!(t, Token::Operator { value, .. } if value == "&&"));
+    let has_lt = tokens
+        .iter()
+        .any(|t| matches!(t, Token::Operator { value, .. } if value == "<"));
 
     assert!(has_gt);
     assert!(has_and);
@@ -393,7 +390,9 @@ fn test_integration_unicode() {
         assert!(matches!(&tokens[1], Token::Ident { value, .. } if value == "变量"));
     }
     // Find the number token (might be at different index due to whitespace)
-    let number_token = tokens.iter().find(|t| matches!(t, Token::Number { value: 42, .. }));
+    let number_token = tokens
+        .iter()
+        .find(|t| matches!(t, Token::Number { value: 42, .. }));
     assert!(number_token.is_some());
 }
 
@@ -408,7 +407,11 @@ fn test_integration_empty_input() {
 #[test]
 fn test_integration_only_whitespace() {
     let mut lexer = create_lexer("   \t\n  ");
-    let tokens: Vec<_> = lexer.tokenize().into_iter().filter(|t| !t.is_whitespace()).collect();
+    let tokens: Vec<_> = lexer
+        .tokenize()
+        .into_iter()
+        .filter(|t| !t.is_whitespace())
+        .collect();
     // Should only have whitespace tokens or EOF
     assert!(tokens.is_empty() || tokens.iter().all(|t| t.is_eof()));
 }
@@ -428,4 +431,3 @@ fn test_integration_priority_order() {
     // "let" should be matched as keyword, not identifier
     assert!(matches!(&tokens[0], Token::Keyword { value, .. } if value == "let"));
 }
-

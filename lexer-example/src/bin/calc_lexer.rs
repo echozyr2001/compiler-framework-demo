@@ -75,7 +75,7 @@ where
             has_digit = true;
             ctx.advance();
             let int_part = ctx.consume_while(|c| c.is_ascii_digit());
-            value_str.push_str(int_part);
+            value_str.push_str(int_part.as_ref());
         }
 
         // 处理小数部分
@@ -86,7 +86,7 @@ where
             if !decimal.is_empty() {
                 has_digit = true;
             }
-            value_str.push_str(decimal);
+            value_str.push_str(decimal.as_ref());
         }
 
         // 必须有至少一个数字

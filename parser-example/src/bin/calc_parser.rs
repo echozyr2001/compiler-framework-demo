@@ -36,6 +36,7 @@ use lexer_framework::{
 use parser_framework::{AstNode, DefaultContext, ParseContext, Parser, ParsingRule, Position};
 
 type CalcLexerRules = Vec<Box<dyn LexingRule<LexContext, CalcToken>>>;
+type CalcParserRules = Vec<Box<dyn ParsingRule<DefaultContext<CalcToken>, CalcToken, Expr>>>;
 
 // ============================================================================
 // Token 定义（从 lexer-example 复制，但为了完整性包含在这里）
@@ -114,7 +115,7 @@ where
             has_digit = true;
             ctx.advance();
             let int_part = ctx.consume_while(|c| c.is_ascii_digit());
-            value_str.push_str(int_part);
+            value_str.push_str(int_part.as_ref());
         }
 
         if ctx.peek() == Some('.') {
@@ -124,7 +125,7 @@ where
             if !decimal.is_empty() {
                 has_digit = true;
             }
-            value_str.push_str(decimal);
+            value_str.push_str(decimal.as_ref());
         }
 
         if !has_digit {
@@ -280,9 +281,9 @@ impl AstNode for Expr {
 /// 解析数字字面量（Parser 规则）
 struct NumberParserRule;
 
-impl<'input, Ctx> ParsingRule<'input, Ctx, CalcToken, Expr> for NumberParserRule
+impl<Ctx> ParsingRule<Ctx, CalcToken, Expr> for NumberParserRule
 where
-    Ctx: ParseContext<'input, CalcToken>,
+    Ctx: ParseContext<CalcToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Expr> {
         let token = ctx.peek()?.clone();
@@ -316,9 +317,9 @@ where
 /// 解析括号表达式
 struct GroupRule;
 
-impl<'input, Ctx> ParsingRule<'input, Ctx, CalcToken, Expr> for GroupRule
+impl<Ctx> ParsingRule<Ctx, CalcToken, Expr> for GroupRule
 where
-    Ctx: ParseContext<'input, CalcToken>,
+    Ctx: ParseContext<CalcToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Expr> {
         // 检查左括号
@@ -471,9 +472,9 @@ where
 /// 解析一元运算符（负号）
 struct UnaryRule;
 
-impl<'input, Ctx> ParsingRule<'input, Ctx, CalcToken, Expr> for UnaryRule
+impl<Ctx> ParsingRule<Ctx, CalcToken, Expr> for UnaryRule
 where
-    Ctx: ParseContext<'input, CalcToken>,
+    Ctx: ParseContext<CalcToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Expr> {
         let position = if let Some(CalcToken::Minus { position: lex_pos }) = ctx.peek() {
@@ -532,9 +533,9 @@ impl BinaryRule {
     }
 }
 
-impl<'input, Ctx> ParsingRule<'input, Ctx, CalcToken, Expr> for BinaryRule
+impl<Ctx> ParsingRule<Ctx, CalcToken, Expr> for BinaryRule
 where
-    Ctx: ParseContext<'input, CalcToken>,
+    Ctx: ParseContext<CalcToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Expr> {
         // 创建检查点，用于失败时回溯
@@ -717,9 +718,9 @@ fn token_matches(t1: &CalcToken, t2: &CalcToken) -> bool {
 // 辅助函数：解析表达式（简化版，用于 BinaryRule 和 GroupRule 内部）
 // 这个函数只能解析基本的表达式（数字、括号），不能递归解析完整的二元运算
 // 因为二元运算需要根据优先级来决定如何解析
-fn parse_expression<'input, Ctx>(ctx: &mut Ctx) -> Option<Expr>
+fn parse_expression<Ctx>(ctx: &mut Ctx) -> Option<Expr>
 where
-    Ctx: ParseContext<'input, CalcToken>,
+    Ctx: ParseContext<CalcToken>,
 {
     // 跳过空白
     while matches!(ctx.peek(), Some(CalcToken::Whitespace { .. })) {
@@ -813,9 +814,7 @@ fn main() {
         // 注意：规则按优先级从高到低排序
         // 优先级高的规则先尝试，这样可以先匹配复杂表达式（如二元运算、括号）
         // 数字规则优先级最低，作为后备规则
-        let parser_rules: Vec<
-            Box<dyn ParsingRule<'_, DefaultContext<CalcToken>, CalcToken, Expr> + '_>,
-        > = vec![
+        let parser_rules: CalcParserRules = vec![
             Box::new(GroupRule), // 优先级 25，最高（括号优先级最高）
             Box::new(UnaryRule), // 优先级 15
             Box::new(BinaryRule::new(

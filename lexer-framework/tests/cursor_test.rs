@@ -56,19 +56,19 @@ fn test_cursor_empty_string() {
 #[test]
 fn test_cursor_position_tracking() {
     let mut cursor = Cursor::new("a\nb\nc");
-    
+
     // First line
     assert_eq!(cursor.position().line, 1);
     assert_eq!(cursor.position().column, 1);
     cursor.advance(); // 'a'
     assert_eq!(cursor.position().line, 1);
     assert_eq!(cursor.position().column, 2);
-    
+
     // Newline
     cursor.advance(); // '\n'
     assert_eq!(cursor.position().line, 2);
     assert_eq!(cursor.position().column, 1);
-    
+
     // Second line
     cursor.advance(); // 'b'
     assert_eq!(cursor.position().line, 2);
@@ -117,14 +117,14 @@ fn test_cursor_checkpoint_restore() {
     let mut cursor = Cursor::new("hello");
     cursor.advance(); // 'h'
     cursor.advance(); // 'e'
-    
+
     let checkpoint = cursor.checkpoint();
     assert_eq!(cursor.offset(), 2);
-    
+
     cursor.advance(); // 'l'
     cursor.advance(); // 'l'
     assert_eq!(cursor.offset(), 4);
-    
+
     cursor.restore(checkpoint);
     assert_eq!(cursor.offset(), 2);
     assert_eq!(cursor.peek(), Some('l'));
@@ -136,7 +136,7 @@ fn test_cursor_reset() {
     cursor.advance();
     cursor.advance();
     cursor.reset();
-    
+
     assert_eq!(cursor.offset(), 0);
     assert_eq!(cursor.position(), Position::new());
     assert_eq!(cursor.peek(), Some('h'));
@@ -182,4 +182,3 @@ fn test_cursor_unicode_emoji() {
     assert_eq!(cursor.peek(), Some('🎉'));
     assert_eq!(cursor.position().column, 2);
 }
-

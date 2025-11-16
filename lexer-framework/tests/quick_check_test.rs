@@ -1,6 +1,4 @@
-use lexer_framework::{
-    DefaultContext, LexContext, Lexer, LexingRule, LexToken, Position,
-};
+use lexer_framework::{DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 
 type RuleSet<Tok> = Vec<Box<dyn LexingRule<DefaultContext, Tok>>>;
 
@@ -56,7 +54,10 @@ where
         if ch.is_ascii_digit() {
             let position = ctx.position();
             ctx.advance();
-            Some(TestToken::Digit { value: ch, position })
+            Some(TestToken::Digit {
+                value: ch,
+                position,
+            })
         } else {
             None
         }
@@ -86,7 +87,10 @@ where
         if ch.is_alphabetic() {
             let position = ctx.position();
             ctx.advance();
-            Some(TestToken::Letter { value: ch, position })
+            Some(TestToken::Letter {
+                value: ch,
+                position,
+            })
         } else {
             None
         }
@@ -109,7 +113,10 @@ where
         if !ch.is_alphanumeric() {
             let position = ctx.position();
             ctx.advance();
-            Some(TestToken::Other { value: ch, position })
+            Some(TestToken::Other {
+                value: ch,
+                position,
+            })
         } else {
             None
         }
@@ -126,7 +133,7 @@ fn test_quick_check_skips_non_matching() {
     // DigitRule should be skipped for 'a' via quick_check
     let rules: RuleSet<TestToken> = vec![Box::new(DigitRule), Box::new(LetterRule)];
     let mut lexer = Lexer::from_str("a", rules);
-    
+
     let token = lexer.next_token();
     assert_eq!(
         token,
@@ -140,10 +147,9 @@ fn test_quick_check_skips_non_matching() {
 #[test]
 fn test_quick_check_allows_matching() {
     // DigitRule should match '5' via quick_check
-    let rules: RuleSet<TestToken> =
-        vec![Box::new(DigitRule), Box::new(LetterRule)];
+    let rules: RuleSet<TestToken> = vec![Box::new(DigitRule), Box::new(LetterRule)];
     let mut lexer = Lexer::from_str("5", rules);
-    
+
     let token = lexer.next_token();
     assert_eq!(
         token,
@@ -157,10 +163,13 @@ fn test_quick_check_allows_matching() {
 #[test]
 fn test_quick_check_none_always_tries() {
     // OtherRule has no quick_check, should always try
-    let rules: RuleSet<TestToken> =
-        vec![Box::new(DigitRule), Box::new(LetterRule), Box::new(OtherRule)];
+    let rules: RuleSet<TestToken> = vec![
+        Box::new(DigitRule),
+        Box::new(LetterRule),
+        Box::new(OtherRule),
+    ];
     let mut lexer = Lexer::from_str("!", rules);
-    
+
     // DigitRule and LetterRule should be skipped via quick_check
     // OtherRule should match
     let token = lexer.next_token();
@@ -175,10 +184,13 @@ fn test_quick_check_none_always_tries() {
 
 #[test]
 fn test_quick_check_mixed_input() {
-    let rules: RuleSet<TestToken> =
-        vec![Box::new(DigitRule), Box::new(LetterRule), Box::new(OtherRule)];
+    let rules: RuleSet<TestToken> = vec![
+        Box::new(DigitRule),
+        Box::new(LetterRule),
+        Box::new(OtherRule),
+    ];
     let lexer = Lexer::from_str("a5!", rules);
-    
+
     let tokens: Vec<_> = lexer.collect();
     assert_eq!(tokens.len(), 3);
     assert_eq!(
@@ -192,14 +204,22 @@ fn test_quick_check_mixed_input() {
         tokens[1],
         TestToken::Digit {
             value: '5',
-            position: Position { line: 1, column: 2, offset: 1 }
+            position: Position {
+                line: 1,
+                column: 2,
+                offset: 1
+            }
         }
     );
     assert_eq!(
         tokens[2],
         TestToken::Other {
             value: '!',
-            position: Position { line: 1, column: 3, offset: 2 }
+            position: Position {
+                line: 1,
+                column: 3,
+                offset: 2
+            }
         }
     );
 }
@@ -208,10 +228,9 @@ fn test_quick_check_mixed_input() {
 fn test_quick_check_eof() {
     let rules: RuleSet<TestToken> = vec![Box::new(DigitRule)];
     let mut lexer = Lexer::from_str("", rules);
-    
+
     // quick_check with None (EOF) should return None (unknown)
     // So it should try the rule, which will fail, then return None
     let token = lexer.next_token();
     assert_eq!(token, None);
 }
-

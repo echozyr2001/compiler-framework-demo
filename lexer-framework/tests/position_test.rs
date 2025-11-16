@@ -19,7 +19,7 @@ fn test_position_equality() {
     let pos1 = Position::new();
     let pos2 = Position::new();
     assert_eq!(pos1, pos2);
-    
+
     let pos3 = Position {
         line: 2,
         column: 3,
@@ -37,7 +37,7 @@ fn test_position_copy() {
     };
     let pos2 = pos1; // Copy
     assert_eq!(pos1, pos2);
-    
+
     // Modify pos2, pos1 should be unchanged
     let pos3 = Position {
         line: 5,
@@ -46,4 +46,3 @@ fn test_position_copy() {
     };
     assert_ne!(pos1, pos3);
 }
-

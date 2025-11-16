@@ -27,7 +27,7 @@ impl Checkpoint {
 /// Context for parsing operations in CGP (Context-Generic Programming).
 /// This trait allows parsing rules to access token stream information
 /// without being tightly coupled to a specific parser implementation.
-pub trait ParseContext<'input, Tok>
+pub trait ParseContext<Tok>
 where
     Tok: Clone + std::fmt::Debug,
 {
@@ -110,7 +110,7 @@ fn extract_position_from_token<T>(_token: &T) -> Option<Position> {
     None
 }
 
-impl<'input, Tok> ParseContext<'input, Tok> for DefaultContext<Tok>
+impl<Tok> ParseContext<Tok> for DefaultContext<Tok>
 where
     Tok: Clone + std::fmt::Debug,
 {

@@ -22,7 +22,7 @@ Parser Framework 遵循 CGP 设计模式，核心思想是：
 解析上下文 trait，提供对 token 流的访问：
 
 ```rust
-pub trait ParseContext<'input, Tok> {
+pub trait ParseContext<Tok> {
     fn peek(&self) -> Option<&Tok>;
     fn peek_at(&self, offset: usize) -> Option<&Tok>;
     fn advance(&mut self) -> Option<Tok>;
@@ -39,9 +39,9 @@ pub trait ParseContext<'input, Tok> {
 解析规则 trait，定义如何从上下文中解析 AST 节点：
 
 ```rust
-pub trait ParsingRule<'input, Ctx, Tok, Ast>
+pub trait ParsingRule<Ctx, Tok, Ast>
 where
-    Ctx: ParseContext<'input, Tok>,
+    Ctx: ParseContext<Tok>,
     Tok: Clone + std::fmt::Debug,
     Ast: AstNode,
 {
@@ -67,9 +67,9 @@ pub trait AstNode: Clone + std::fmt::Debug {
 解析器结构体，协调规则的应用：
 
 ```rust
-pub struct Parser<'input, Ctx, Tok, Ast> {
+pub struct Parser<Ctx, Tok, Ast> {
     context: Ctx,
-    rules: Vec<Box<dyn ParsingRule<'input, Ctx, Tok, Ast> + 'input>>,
+    rules: Vec<Box<dyn ParsingRule<Ctx, Tok, Ast>>>,
 }
 ```
 
@@ -115,9 +115,9 @@ use parser_framework::{ParseContext, ParsingRule, Position};
 
 struct NumberRule;
 
-impl<'input, Ctx, Tok> ParsingRule<'input, Ctx, Tok, Expr> for NumberRule
+impl<Ctx, Tok> ParsingRule<Ctx, Tok, Expr> for NumberRule
 where
-    Ctx: ParseContext<'input, Tok>,
+    Ctx: ParseContext<Tok>,
     Tok: Clone + std::fmt::Debug + PartialEq,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Expr> {
@@ -147,7 +147,7 @@ where
 use parser_framework::{DefaultContext, Parser};
 
 let tokens = vec![Token::Number(42), Token::Plus, Token::Number(10)];
-let rules: Vec<Box<dyn ParsingRule<'_, DefaultContext<Token>, Token, Expr> + '_>> =
+let rules: Vec<Box<dyn ParsingRule<DefaultContext<Token>, Token, Expr>>> =
     vec![Box::new(NumberRule)];
 
 let mut parser = Parser::from_tokens(tokens, rules);

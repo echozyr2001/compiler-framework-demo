@@ -1,5 +1,5 @@
 //! 简单的解析器示例
-//! 
+//!
 //! 本示例展示了如何使用 parser-framework 的基本功能：
 //! 1. 定义 Token 类型
 //! 2. 定义 AST 节点类型
@@ -8,7 +8,10 @@
 //!
 //! 这个示例解析简单的算术表达式，只支持两个数字和一个运算符。
 
-use parser_framework::{AstNode, DefaultContext, ParseContext, ParsingRule, Parser, Position};
+use parser_framework::{AstNode, DefaultContext, ParseContext, Parser, ParsingRule, Position};
+
+type SimpleParserRules =
+    Vec<Box<dyn ParsingRule<DefaultContext<SimpleToken>, SimpleToken, SimpleExpr>>>;
 
 // ============================================================================
 // Token 定义（简化版，直接从 token 流开始）
@@ -62,9 +65,9 @@ impl AstNode for SimpleExpr {
 /// 解析数字字面量
 struct NumberRule;
 
-impl<'input, Ctx> ParsingRule<'input, Ctx, SimpleToken, SimpleExpr> for NumberRule
+impl<Ctx> ParsingRule<Ctx, SimpleToken, SimpleExpr> for NumberRule
 where
-    Ctx: ParseContext<'input, SimpleToken>,
+    Ctx: ParseContext<SimpleToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<SimpleExpr> {
         let token = ctx.peek()?.clone();
@@ -97,9 +100,9 @@ impl BinaryRule {
     }
 }
 
-impl<'input, Ctx> ParsingRule<'input, Ctx, SimpleToken, SimpleExpr> for BinaryRule
+impl<Ctx> ParsingRule<Ctx, SimpleToken, SimpleExpr> for BinaryRule
 where
-    Ctx: ParseContext<'input, SimpleToken>,
+    Ctx: ParseContext<SimpleToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<SimpleExpr> {
         // 解析左操作数（必须是数字）
@@ -169,17 +172,17 @@ fn main() {
     // 示例 1: 解析单个数字
     println!("【示例 1】解析单个数字:");
     println!("{}", "=".repeat(50));
-    
-    let tokens1 = vec![
-        SimpleToken::Number { value: 42, position: Position::new() },
-    ];
-    
-    let rules1: Vec<Box<dyn ParsingRule<'_, DefaultContext<SimpleToken>, SimpleToken, SimpleExpr> + '_>> = 
-        vec![Box::new(NumberRule)];
-    
+
+    let tokens1 = vec![SimpleToken::Number {
+        value: 42,
+        position: Position::new(),
+    }];
+
+    let rules1: SimpleParserRules = vec![Box::new(NumberRule)];
+
     let context1 = DefaultContext::from_token_iter(tokens1);
     let mut parser1 = Parser::new(context1, rules1);
-    
+
     if let Some(ast) = parser1.parse_one() {
         println!("输入: 42");
         println!("AST: {:?}", ast);
@@ -193,32 +196,62 @@ fn main() {
     // 示例 2: 解析加法表达式
     println!("【示例 2】解析加法表达式:");
     println!("{}", "=".repeat(50));
-    
+
     let tokens2 = vec![
-        SimpleToken::Number { value: 3, position: Position { line: 1, column: 1, offset: 0 } },
-        SimpleToken::Plus { position: Position { line: 1, column: 3, offset: 2 } },
-        SimpleToken::Number { value: 4, position: Position { line: 1, column: 5, offset: 4 } },
+        SimpleToken::Number {
+            value: 3,
+            position: Position {
+                line: 1,
+                column: 1,
+                offset: 0,
+            },
+        },
+        SimpleToken::Plus {
+            position: Position {
+                line: 1,
+                column: 3,
+                offset: 2,
+            },
+        },
+        SimpleToken::Number {
+            value: 4,
+            position: Position {
+                line: 1,
+                column: 5,
+                offset: 4,
+            },
+        },
     ];
-    
-    let rules2: Vec<Box<dyn ParsingRule<'_, DefaultContext<SimpleToken>, SimpleToken, SimpleExpr> + '_>> = 
-        vec![
-            Box::new(BinaryRule::new(
-                SimpleToken::Plus { position: Position::new() },
-                Op::Add,
-            )),
-            Box::new(NumberRule), // NumberRule 作为后备，用于解析单个数字
-        ];
-    
+
+    let rules2: SimpleParserRules = vec![
+        Box::new(BinaryRule::new(
+            SimpleToken::Plus {
+                position: Position::new(),
+            },
+            Op::Add,
+        )),
+        Box::new(NumberRule), // NumberRule 作为后备，用于解析单个数字
+    ];
+
     let context2 = DefaultContext::from_token_iter(tokens2);
     let mut parser2 = Parser::new(context2, rules2);
-    
+
     if let Some(ast) = parser2.parse_one() {
         println!("输入: 3 + 4");
         println!("AST: {:#?}", ast);
         match ast {
-            SimpleExpr::Binary { op, left, right, .. } => {
-                println!("成功解析为: {:?} {} {:?}", left, 
-                    match op { Op::Add => "+", Op::Subtract => "-" }, right);
+            SimpleExpr::Binary {
+                op, left, right, ..
+            } => {
+                println!(
+                    "成功解析为: {:?} {} {:?}",
+                    left,
+                    match op {
+                        Op::Add => "+",
+                        Op::Subtract => "-",
+                    },
+                    right
+                );
             }
             _ => println!("解析结果: {:?}", ast),
         }
@@ -231,32 +264,62 @@ fn main() {
     // 示例 3: 解析减法表达式
     println!("【示例 3】解析减法表达式:");
     println!("{}", "=".repeat(50));
-    
+
     let tokens3 = vec![
-        SimpleToken::Number { value: 10, position: Position { line: 1, column: 1, offset: 0 } },
-        SimpleToken::Minus { position: Position { line: 1, column: 4, offset: 3 } },
-        SimpleToken::Number { value: 3, position: Position { line: 1, column: 6, offset: 5 } },
+        SimpleToken::Number {
+            value: 10,
+            position: Position {
+                line: 1,
+                column: 1,
+                offset: 0,
+            },
+        },
+        SimpleToken::Minus {
+            position: Position {
+                line: 1,
+                column: 4,
+                offset: 3,
+            },
+        },
+        SimpleToken::Number {
+            value: 3,
+            position: Position {
+                line: 1,
+                column: 6,
+                offset: 5,
+            },
+        },
     ];
-    
-    let rules3: Vec<Box<dyn ParsingRule<'_, DefaultContext<SimpleToken>, SimpleToken, SimpleExpr> + '_>> = 
-        vec![
-            Box::new(BinaryRule::new(
-                SimpleToken::Minus { position: Position::new() },
-                Op::Subtract,
-            )),
-            Box::new(NumberRule),
-        ];
-    
+
+    let rules3: SimpleParserRules = vec![
+        Box::new(BinaryRule::new(
+            SimpleToken::Minus {
+                position: Position::new(),
+            },
+            Op::Subtract,
+        )),
+        Box::new(NumberRule),
+    ];
+
     let context3 = DefaultContext::from_token_iter(tokens3);
     let mut parser3 = Parser::new(context3, rules3);
-    
+
     if let Some(ast) = parser3.parse_one() {
         println!("输入: 10 - 3");
         println!("AST: {:#?}", ast);
         match ast {
-            SimpleExpr::Binary { op, left, right, .. } => {
-                println!("成功解析为: {:?} {} {:?}", left, 
-                    match op { Op::Add => "+", Op::Subtract => "-" }, right);
+            SimpleExpr::Binary {
+                op, left, right, ..
+            } => {
+                println!(
+                    "成功解析为: {:?} {} {:?}",
+                    left,
+                    match op {
+                        Op::Add => "+",
+                        Op::Subtract => "-",
+                    },
+                    right
+                );
             }
             _ => println!("解析结果: {:?}", ast),
         }
@@ -277,4 +340,3 @@ fn main() {
     println!("- 规则失败时会自动恢复检查点（checkpoint）");
     println!("- Context 提供 peek(), advance(), checkpoint(), restore() 等方法");
 }
-

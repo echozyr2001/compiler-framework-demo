@@ -4,27 +4,24 @@ use std::cmp::Reverse;
 
 /// A parser that applies rules in priority order.
 /// This is the main orchestrator in the CGP design.
-pub struct Parser<'input, Ctx, Tok, Ast>
+pub struct Parser<Ctx, Tok, Ast>
 where
-    Ctx: ParseContext<'input, Tok>,
+    Ctx: ParseContext<Tok>,
     Tok: Clone + std::fmt::Debug,
     Ast: AstNode,
 {
     context: Ctx,
-    rules: Vec<Box<dyn ParsingRule<'input, Ctx, Tok, Ast> + 'input>>,
+    rules: Vec<Box<dyn ParsingRule<Ctx, Tok, Ast>>>,
 }
 
-impl<'input, Ctx, Tok, Ast> Parser<'input, Ctx, Tok, Ast>
+impl<Ctx, Tok, Ast> Parser<Ctx, Tok, Ast>
 where
-    Ctx: ParseContext<'input, Tok>,
+    Ctx: ParseContext<Tok>,
     Tok: Clone + std::fmt::Debug,
     Ast: AstNode,
 {
     /// Creates a new parser with the given context and rules.
-    pub fn new(
-        context: Ctx,
-        rules: Vec<Box<dyn ParsingRule<'input, Ctx, Tok, Ast> + 'input>>,
-    ) -> Self {
+    pub fn new(context: Ctx, rules: Vec<Box<dyn ParsingRule<Ctx, Tok, Ast>>>) -> Self {
         // Sort rules by priority (highest first)
         let mut sorted_rules = rules;
         sorted_rules.sort_by_key(|rule| Reverse(rule.priority()));
@@ -38,11 +35,10 @@ where
     /// Creates a parser from a token iterator.
     pub fn from_tokens<I>(
         tokens: I,
-        rules: Vec<Box<dyn ParsingRule<'input, DefaultContext<Tok>, Tok, Ast> + 'input>>,
-    ) -> Parser<'input, DefaultContext<Tok>, Tok, Ast>
+        rules: Vec<Box<dyn ParsingRule<DefaultContext<Tok>, Tok, Ast>>>,
+    ) -> Parser<DefaultContext<Tok>, Tok, Ast>
     where
         I: IntoIterator<Item = Tok>,
-        Tok: 'input,
     {
         let context = DefaultContext::from_token_iter(tokens);
         Parser::new(context, rules)

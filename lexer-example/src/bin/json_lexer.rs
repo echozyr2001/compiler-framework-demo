@@ -142,7 +142,7 @@ where
             if ch.is_ascii_digit() {
                 has_digit = true;
                 let int_part = ctx.consume_while(|c| c.is_ascii_digit());
-                value.push_str(int_part);
+                value.push_str(&int_part);
             } else if first == '-' {
                 // If we consumed '-' but there's no digit, restore and fail
                 ctx.restore(checkpoint);
@@ -167,7 +167,7 @@ where
                     value.push('.');
                     ctx.advance();
                     let decimal = ctx.consume_while(|c| c.is_ascii_digit());
-                    value.push_str(decimal);
+                    value.push_str(&decimal);
                 }
             }
         }
@@ -187,7 +187,7 @@ where
                 // Remove 'e' or 'E' from value
                 value.pop();
             } else {
-                value.push_str(exp);
+                value.push_str(&exp);
             }
         }
 
