@@ -12,3 +12,15 @@ dependencies = [
 [[package]]
 name = "lexer-framework"
 version = "0.1.0"
+
+[[package]]
+name = "parser-example"
+version = "0.1.0"
+dependencies = [
+ "lexer-framework",
+ "parser-framework",
+]
+
+[[package]]
+name = "parser-framework"
+version = "0.1.0"

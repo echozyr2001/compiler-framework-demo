@@ -1,0 +1,16 @@
+[package]
+name = "parser-example"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "calc-parser"
+path = "src/bin/calc_parser.rs"
+
+[[bin]]
+name = "simple-parser"
+path = "src/bin/simple_parser.rs"
+
+[dependencies]
+lexer-framework = { path = "../lexer-framework" }
+parser-framework = { path = "../parser-framework" }

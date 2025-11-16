@@ -1,0 +1,52 @@
+use crate::context::ParseContext;
+use crate::position::Position;
+
+/// An AST node produced by the parser.
+/// This is part of the CGP design, allowing AST nodes to be generic
+/// while maintaining a consistent interface.
+pub trait AstNode: Clone + std::fmt::Debug {
+    /// Returns the position of this AST node in the source.
+    fn position(&self) -> Option<Position>;
+
+    /// Returns the span (start and end positions) of this AST node.
+    fn span(&self) -> Option<(Position, Position)> {
+        self.position().map(|pos| (pos, pos))
+    }
+}
+
+/// A parsing rule that operates on a context.
+/// This is the core of CGP design - rules are generic over context,
+/// allowing them to work with different parser implementations.
+pub trait ParsingRule<'input, Ctx, Tok, Ast>
+where
+    Ctx: ParseContext<'input, Tok>,
+    Tok: Clone + std::fmt::Debug,
+    Ast: AstNode,
+{
+    /// Attempts to match and parse an AST node from the context.
+    /// Returns Some(node) if matched, None otherwise.
+    /// The token stream should only be advanced if a node is successfully parsed.
+    fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Ast>;
+
+    /// Returns the priority of this rule. Higher priority rules are tried first.
+    /// Default priority is 0.
+    fn priority(&self) -> i32 {
+        0
+    }
+
+    /// Quick check: returns whether this rule might match based on the current token.
+    /// This is an optimization hint for the parser to skip rules that definitely won't match.
+    ///
+    /// - `Some(true)`  - This rule might match (or definitely matches)
+    /// - `Some(false)` - This rule definitely won't match
+    /// - `None`        - Unknown, need to try full parse
+    ///
+    /// Default implementation returns `None`, indicating full parse is always needed.
+    /// Rules that can quickly determine match/non-match based on current token
+    /// should override this method for better performance.
+    #[inline]
+    fn quick_check(&self, current_token: Option<&Tok>) -> Option<bool> {
+        let _ = current_token; // Suppress unused parameter warning
+        None
+    }
+}

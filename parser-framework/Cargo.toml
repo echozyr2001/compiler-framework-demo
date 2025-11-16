@@ -1,0 +1,9 @@
+[package]
+name = "parser-framework"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "parser_framework"
+path = "src/lib.rs"
+
