@@ -1,5 +1,5 @@
 use crate::context::ParseContext;
-use crate::position::Position;
+use common_framework::Position;
 
 /// An AST node produced by the parser.
 /// This is part of the CGP design, allowing AST nodes to be generic

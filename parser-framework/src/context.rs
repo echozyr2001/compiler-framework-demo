@@ -1,4 +1,4 @@
-use crate::position::Position;
+use common_framework::Position;
 
 /// A checkpoint for parser state (token position).
 #[derive(Debug, Clone, Copy)]

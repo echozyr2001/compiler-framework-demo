@@ -1,5 +1,5 @@
 use crate::cursor::Cursor;
-use crate::position::Position;
+use common_framework::Position;
 
 /// Context for lexing operations in CGP (Context-Generic Programming).
 /// This trait allows lexing rules to access contextual information

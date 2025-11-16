@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "common-framework"
+version = "0.1.0"
+
+[[package]]
 name = "lexer-example"
 version = "0.1.0"
 dependencies = [
@@ -12,6 +16,9 @@ dependencies = [
 [[package]]
 name = "lexer-framework"
 version = "0.1.0"
+dependencies = [
+ "common-framework",
+]
 
 [[package]]
 name = "parser-example"
@@ -24,3 +31,6 @@ dependencies = [
 [[package]]
 name = "parser-framework"
 version = "0.1.0"
+dependencies = [
+ "common-framework",
+]

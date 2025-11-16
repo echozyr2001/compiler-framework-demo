@@ -1,5 +1,5 @@
 use crate::context::LexContext;
-use crate::position::Position;
+use common_framework::Position;
 
 /// A token produced by the lexer.
 /// This is part of the CGP design, allowing tokens to be generic

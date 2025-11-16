@@ -1,4 +1,4 @@
-use crate::position::Position;
+use common_framework::Position;
 
 /// A cursor for traversing input text during lexing.
 /// This is part of the CGP (Context-Generic Programming) design,
