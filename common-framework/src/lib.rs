@@ -7,5 +7,5 @@ pub mod streaming;
 pub mod text_slice;
 
 pub use position::Position;
-pub use streaming::{ConsumerEvent, PipelineAction, PipelineMessage};
+pub use streaming::{Inbound, Outbound, StreamingSignal};
 pub use text_slice::TextSlice;

@@ -1,37 +1,44 @@
-/// Message emitted by a component (lexer, parser, controller) during streaming
-/// orchestration. Right now it encodes a simple request/response flow between
-/// parser and pipeline, but it can be extended for richer collaboration (e.g.
-/// backpressure, lookahead hints).
+/// Protocol-level signals that flow through the streaming pipeline.
+///
+/// This enum is inspired by message-based P2P protocols: every controller command
+/// (action) and parser/lexer status report (message) is a variant here. Once the
+/// pipeline adopts a channel-based architecture, components can treat these
+/// signals as either inbound commands or outbound responses.
 #[derive(Debug, Clone)]
-pub enum PipelineMessage {
-    /// Parser needs the next token.
-    NeedToken,
-    /// Parser finished and produced the given AST count.
-    ProducedAstCount(usize),
-    /// Parser cannot make progress; contains context string.
-    Blocked(String),
-    /// Parser has finished and there are no more nodes to emit.
-    Finished,
-}
-
-/// Actions controller can trigger on downstream components.
-#[derive(Debug, Clone)]
-pub enum PipelineAction<Tok> {
-    /// Provide the next token to the parser.
-    ProvideToken(Tok),
-    /// Signal end-of-input.
-    EndOfInput,
-}
-
-/// Events emitted by a token consumer (parser) after a poll.
-#[derive(Debug)]
-pub enum ConsumerEvent<Ast> {
-    /// Parser consumed available tokens and produced AST nodes.
+pub enum StreamingSignal<Tok, Ast> {
+    /// Controller asks the lexer to emit up to `n` tokens.
+    RequestToken(usize),
+    /// Lexer supplies a token produced from the input stream.
+    SupplyToken(Tok),
+    /// Controller confirms a token was delivered to the parser.
+    TokenDelivered,
+    /// Parser reports it produced `n` AST nodes.
     Produced(Vec<Ast>),
-    /// Parser requires another token to continue.
-    NeedToken,
-    /// Parser finished; contains any trailing AST nodes.
+    /// Parser needs `n` more tokens before continuing.
+    NeedToken(usize),
+    /// Parser has completed and emitted remaining AST nodes.
     Finished(Vec<Ast>),
-    /// Parser is blocked and cannot proceed.
+    /// Parser or lexer hit a blocking condition with a reason.
     Blocked(String),
+    /// Controller signals that the input stream is finished.
+    EndOfInput,
+    /// Controller forces the pipeline to abort, optionally with reason.
+    Abort(String),
+}
+
+/// Trait implemented by components that can **receive** streaming signals.
+///
+/// Similar to a P2P `Inbound` handler, the receiver decides how to react when a
+/// controller or peer sends a `StreamingSignal`.
+pub trait Inbound<Tok, Ast> {
+    fn handle_signal(&mut self, signal: StreamingSignal<Tok, Ast>);
+}
+
+/// Trait implemented by components that can **emit** streaming signals.
+///
+/// Components that participate in the protocol expose an outbound channel so
+/// that the controller can pull their latest status (e.g. parser produced ASTs,
+/// lexer issued `Blocked`, etc.).
+pub trait Outbound<Tok, Ast> {
+    fn next_signal(&mut self) -> Option<StreamingSignal<Tok, Ast>>;
 }

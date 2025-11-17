@@ -1,4 +1,4 @@
-use common_framework::{ConsumerEvent, PipelineMessage};
+use common_framework::{Inbound, Outbound, StreamingSignal};
 use lexer_framework::streaming::TokenProducer;
 use parser_framework::streaming::TokenConsumer;
 
@@ -7,8 +7,8 @@ use parser_framework::streaming::TokenConsumer;
 /// (e.g. asynchronous scheduling, buffering, backpressure).
 pub struct Pipeline<L, P, Tok, Ast>
 where
-    L: TokenProducer<Tok>,
-    P: TokenConsumer<Tok, Ast>,
+    L: TokenProducer<Tok> + Inbound<Tok, Ast> + Outbound<Tok, Ast>,
+    P: TokenConsumer<Tok, Ast> + Inbound<Tok, Ast> + Outbound<Tok, Ast>,
 {
     lexer: L,
     parser: P,
@@ -17,8 +17,8 @@ where
 
 impl<L, P, Tok, Ast> Pipeline<L, P, Tok, Ast>
 where
-    L: TokenProducer<Tok>,
-    P: TokenConsumer<Tok, Ast>,
+    L: TokenProducer<Tok> + Inbound<Tok, Ast> + Outbound<Tok, Ast>,
+    P: TokenConsumer<Tok, Ast> + Inbound<Tok, Ast> + Outbound<Tok, Ast>,
 {
     pub fn new(lexer: L, parser: P) -> Self {
         Self {
@@ -33,26 +33,49 @@ where
         let mut results = Vec::new();
 
         loop {
-            match self.parser.poll() {
-                ConsumerEvent::Produced(mut nodes) => {
-                    results.append(&mut nodes);
-                }
-                ConsumerEvent::NeedToken => {
-                    if let Some(token) = self.lexer.poll_token() {
-                        self.parser.push_token(token);
-                    } else {
-                        self.parser.on_message(&PipelineMessage::Finished);
-                        results.extend(self.parser.finish());
+            if let Some(signal) = self.parser.next_signal() {
+                match signal {
+                    StreamingSignal::Produced(mut nodes) => {
+                        results.append(&mut nodes);
+                        continue;
+                    }
+                    StreamingSignal::NeedToken(min_needed) => {
+                        self.lexer
+                            .handle_signal(StreamingSignal::RequestToken(min_needed));
+                        if let Some(token_signal) = self.lexer.next_signal() {
+                            match token_signal {
+                                StreamingSignal::SupplyToken(token) => {
+                                    self.parser
+                                        .handle_signal(StreamingSignal::SupplyToken(token));
+                                }
+                                StreamingSignal::EndOfInput => {
+                                    self.parser.handle_signal(StreamingSignal::EndOfInput);
+                                }
+                                StreamingSignal::Blocked(reason)
+                                | StreamingSignal::Abort(reason) => {
+                                    self.parser
+                                        .handle_signal(StreamingSignal::Abort(reason.clone()));
+                                    self.lexer
+                                        .handle_signal(StreamingSignal::Abort(reason.clone()));
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                        continue;
+                    }
+                    StreamingSignal::Finished(mut nodes) => {
+                        results.append(&mut nodes);
                         break;
                     }
-                }
-                ConsumerEvent::Finished(mut nodes) => {
-                    results.append(&mut nodes);
-                    break;
-                }
-                ConsumerEvent::Blocked(reason) => {
-                    self.parser.on_message(&PipelineMessage::Blocked(reason));
-                    break;
+                    StreamingSignal::Blocked(reason) | StreamingSignal::Abort(reason) => {
+                        self.parser
+                            .handle_signal(StreamingSignal::Abort(reason.clone()));
+                        self.lexer
+                            .handle_signal(StreamingSignal::Abort(reason.clone()));
+                        break;
+                    }
+                    _ => {}
                 }
             }
         }

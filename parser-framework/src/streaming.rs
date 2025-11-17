@@ -1,7 +1,7 @@
 use crate::context::{extract_position_from_token, ParseContext};
 use crate::parser::Parser;
 use crate::traits::AstNode;
-use common_framework::{ConsumerEvent, PipelineMessage, Position};
+use common_framework::{Inbound, Outbound, Position, StreamingSignal};
 use std::fmt::Debug;
 
 /// Streaming-friendly parse context that can be fed tokens incrementally.
@@ -13,7 +13,6 @@ where
     current: usize,
     finished: bool,
     position: Position,
-    stream_closed: bool,
 }
 
 impl<Tok> Default for StreamingParseContext<Tok>
@@ -35,7 +34,6 @@ where
             current: 0,
             finished: false,
             position: Position::default(),
-            stream_closed: false,
         }
     }
 
@@ -46,17 +44,11 @@ where
         }
         self.tokens.push(token);
         self.finished = false;
-        self.stream_closed = false;
     }
 
     /// Marks the context as finished, indicating no more tokens will arrive.
     pub fn mark_finished(&mut self) {
         self.finished = true;
-        self.stream_closed = true;
-    }
-
-    pub fn is_stream_closed(&self) -> bool {
-        self.stream_closed
     }
 }
 
@@ -110,12 +102,6 @@ pub trait TokenConsumer<Tok, Ast> {
 
     /// Signals the end of input and drains any remaining AST nodes.
     fn finish(&mut self) -> Vec<Ast>;
-
-    /// Receives pipeline messages from controller.
-    fn on_message(&mut self, _message: &PipelineMessage) {}
-
-    /// Attempts to advance the parser and returns the current event.
-    fn poll(&mut self) -> ConsumerEvent<Ast>;
 }
 
 impl<Tok, Ast> TokenConsumer<Tok, Ast> for Parser<StreamingParseContext<Tok>, Tok, Ast>
@@ -132,18 +118,54 @@ where
         self.context_mut().mark_finished();
         self.parse()
     }
+}
 
-    fn on_message(&mut self, message: &PipelineMessage) {
-        if matches!(message, PipelineMessage::NeedToken) {
-            // Streaming parser always needs tokens when asked; nothing to do yet.
+impl<Tok, Ast> Outbound<Tok, Ast> for Parser<StreamingParseContext<Tok>, Tok, Ast>
+where
+    Tok: Clone + Debug,
+    Ast: AstNode,
+{
+    fn next_signal(&mut self) -> Option<StreamingSignal<Tok, Ast>> {
+        let mut produced = Vec::new();
+        loop {
+            let before = self.context().token_index();
+            if let Some(node) = self.next_node() {
+                produced.push(node);
+                continue;
+            }
+
+            if !produced.is_empty() {
+                return Some(StreamingSignal::Produced(produced));
+            }
+
+            if self.context().is_eof() {
+                return Some(StreamingSignal::Finished(Vec::new()));
+            }
+
+            if self.context().token_index() == before {
+                return Some(StreamingSignal::NeedToken(1));
+            }
         }
     }
+}
 
-    fn poll(&mut self) -> ConsumerEvent<Ast> {
-        if self.context().is_stream_closed() {
-            ConsumerEvent::Finished(Vec::new())
-        } else {
-            ConsumerEvent::NeedToken
+impl<Tok, Ast> Inbound<Tok, Ast> for Parser<StreamingParseContext<Tok>, Tok, Ast>
+where
+    Tok: Clone + Debug,
+    Ast: AstNode,
+{
+    fn handle_signal(&mut self, signal: StreamingSignal<Tok, Ast>) {
+        match signal {
+            StreamingSignal::SupplyToken(token) => {
+                self.push_token(token);
+            }
+            StreamingSignal::EndOfInput => {
+                self.context_mut().mark_finished();
+            }
+            StreamingSignal::Abort(_) => {
+                self.context_mut().mark_finished();
+            }
+            _ => {}
         }
     }
 }

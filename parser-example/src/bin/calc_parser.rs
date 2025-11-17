@@ -30,7 +30,7 @@
 //!    这需要改进架构，让规则能够访问规则列表并递归创建 Parser。
 
 #[cfg(feature = "streaming")]
-use common_framework::PipelineMessage;
+use common_framework::{Inbound, Outbound, StreamingSignal};
 #[cfg(feature = "streaming")]
 use lexer_framework::TokenProducer;
 use lexer_framework::{
@@ -967,9 +967,36 @@ where
         }
         None
     }
+}
 
-    fn on_message(&mut self, message: &PipelineMessage) {
-        self.inner.on_message(message);
+#[cfg(feature = "streaming")]
+impl<L, Ast> Outbound<CalcToken, Ast> for FilteringProducer<L>
+where
+    L: Outbound<CalcToken, Ast>,
+{
+    fn next_signal(&mut self) -> Option<StreamingSignal<CalcToken, Ast>> {
+        while let Some(signal) = self.inner.next_signal() {
+            match signal {
+                StreamingSignal::SupplyToken(token) => {
+                    if let Some(filtered) = filter_streaming_token(token) {
+                        return Some(StreamingSignal::SupplyToken(filtered));
+                    }
+                    continue;
+                }
+                other => return Some(other),
+            }
+        }
+        None
+    }
+}
+
+#[cfg(feature = "streaming")]
+impl<L, Ast> Inbound<CalcToken, Ast> for FilteringProducer<L>
+where
+    L: Inbound<CalcToken, Ast>,
+{
+    fn handle_signal(&mut self, signal: StreamingSignal<CalcToken, Ast>) {
+        self.inner.handle_signal(signal);
     }
 }
 
