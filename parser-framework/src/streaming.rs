@@ -16,6 +16,15 @@ where
     stream_closed: bool,
 }
 
+impl<Tok> Default for StreamingParseContext<Tok>
+where
+    Tok: Clone + Debug,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Tok> StreamingParseContext<Tok>
 where
     Tok: Clone + Debug,

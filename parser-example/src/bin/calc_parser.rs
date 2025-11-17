@@ -27,7 +27,7 @@
 //! 完整的二元运算表达式。要完全支持运算符优先级和括号内的完整表达式，需要：
 //! 1. 让 BinaryRule 的右操作数能够递归使用规则系统解析更高优先级的运算符
 //! 2. 让 GroupRule 能够递归使用规则系统解析括号内的完整表达式
-//! 这需要改进架构，让规则能够访问规则列表并递归创建 Parser。
+//!    这需要改进架构，让规则能够访问规则列表并递归创建 Parser。
 
 #[cfg(feature = "streaming")]
 use common_framework::PipelineMessage;
@@ -553,15 +553,11 @@ where
         }
 
         // 解析操作数（递归）
-        if let Some(operand) = parse_expression(ctx) {
-            Some(Expr::Unary {
-                op: UnaryOp::Negate,
-                operand: Box::new(operand),
-                position,
-            })
-        } else {
-            None
-        }
+        parse_expression(ctx).map(|operand| Expr::Unary {
+            op: UnaryOp::Negate,
+            operand: Box::new(operand),
+            position,
+        })
     }
 
     fn priority(&self) -> i32 {
@@ -763,14 +759,14 @@ where
 
 // 辅助函数：检查两个 token 是否匹配（忽略位置）
 fn token_matches(t1: &CalcToken, t2: &CalcToken) -> bool {
-    match (t1, t2) {
-        (CalcToken::Plus { .. }, CalcToken::Plus { .. }) => true,
-        (CalcToken::Minus { .. }, CalcToken::Minus { .. }) => true,
-        (CalcToken::Multiply { .. }, CalcToken::Multiply { .. }) => true,
-        (CalcToken::Divide { .. }, CalcToken::Divide { .. }) => true,
-        (CalcToken::Power { .. }, CalcToken::Power { .. }) => true,
-        _ => false,
-    }
+    matches!(
+        (t1, t2),
+        (CalcToken::Plus { .. }, CalcToken::Plus { .. })
+            | (CalcToken::Minus { .. }, CalcToken::Minus { .. })
+            | (CalcToken::Multiply { .. }, CalcToken::Multiply { .. })
+            | (CalcToken::Divide { .. }, CalcToken::Divide { .. })
+            | (CalcToken::Power { .. }, CalcToken::Power { .. })
+    )
 }
 
 // 辅助函数：解析表达式（简化版，用于 BinaryRule 和 GroupRule 内部）

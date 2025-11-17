@@ -122,11 +122,11 @@ where
         };
 
         // 检查运算符是否匹配
-        let matches_op = match (&self.op_token, &op_token) {
-            (SimpleToken::Plus { .. }, SimpleToken::Plus { .. }) => true,
-            (SimpleToken::Minus { .. }, SimpleToken::Minus { .. }) => true,
-            _ => false,
-        };
+        let matches_op = matches!(
+            (&self.op_token, &op_token),
+            (SimpleToken::Plus { .. }, SimpleToken::Plus { .. })
+                | (SimpleToken::Minus { .. }, SimpleToken::Minus { .. })
+        );
 
         if !matches_op {
             return None;

@@ -55,10 +55,11 @@ impl TextSlice {
     pub fn end(&self) -> usize {
         self.end
     }
+}
 
-    /// Converts the slice into an owned `String`.
-    pub fn to_string(&self) -> String {
-        self.deref().to_owned()
+impl std::fmt::Display for TextSlice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.deref())
     }
 }
 
