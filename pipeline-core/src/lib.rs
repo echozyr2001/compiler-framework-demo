@@ -50,6 +50,8 @@ where
                                 }
                                 StreamingSignal::EndOfInput => {
                                     self.parser.handle_signal(StreamingSignal::EndOfInput);
+                                    results.extend(self.parser.finish());
+                                    break;
                                 }
                                 StreamingSignal::Blocked(reason)
                                 | StreamingSignal::Abort(reason) => {
@@ -61,6 +63,10 @@ where
                                 }
                                 _ => {}
                             }
+                        } else {
+                            self.parser.handle_signal(StreamingSignal::EndOfInput);
+                            results.extend(self.parser.finish());
+                            break;
                         }
                         continue;
                     }
@@ -77,6 +83,8 @@ where
                     }
                     _ => {}
                 }
+            } else {
+                break;
             }
         }
 

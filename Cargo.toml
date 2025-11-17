@@ -6,6 +6,7 @@ members = [
     "parser-example",
     "common-framework",
     "pipeline-core",
+    "examples/pipeline-demo",
 ]
 resolver = "2"
 

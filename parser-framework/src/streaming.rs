@@ -126,26 +126,20 @@ where
     Ast: AstNode,
 {
     fn next_signal(&mut self) -> Option<StreamingSignal<Tok, Ast>> {
-        let mut produced = Vec::new();
-        loop {
-            let before = self.context().token_index();
-            if let Some(node) = self.next_node() {
-                produced.push(node);
-                continue;
+        // In streaming mode, we only try to parse when we have EOF,
+        // otherwise we just request more tokens
+        if self.context().is_eof() {
+            // When EOF is reached, parse all remaining tokens
+            let remaining = self.parse();
+            if !remaining.is_empty() {
+                return Some(StreamingSignal::Produced(remaining));
             }
-
-            if !produced.is_empty() {
-                return Some(StreamingSignal::Produced(produced));
-            }
-
-            if self.context().is_eof() {
-                return Some(StreamingSignal::Finished(Vec::new()));
-            }
-
-            if self.context().token_index() == before {
-                return Some(StreamingSignal::NeedToken(1));
-            }
+            return Some(StreamingSignal::Finished(Vec::new()));
         }
+
+        // Before EOF, we always need more tokens
+        // Don't try to parse incrementally as it may fail for complex expressions
+        Some(StreamingSignal::NeedToken(1))
     }
 }
 
