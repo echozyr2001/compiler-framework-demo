@@ -48,6 +48,12 @@ pub trait LexContext {
     fn restore(&mut self, checkpoint: crate::cursor::Checkpoint) {
         self.cursor_mut().restore(checkpoint);
     }
+
+    /// Returns the current byte offset in the input.
+    /// This is a convenience method that avoids direct cursor access.
+    fn offset(&self) -> usize {
+        self.cursor().offset()
+    }
 }
 
 /// A simple default context implementation.

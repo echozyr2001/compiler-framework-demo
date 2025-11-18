@@ -95,31 +95,26 @@ where
             return None;
         }
 
-        let offset_before = self.context.cursor().offset();
+        let offset_before = self.context.offset();
 
         if let Some(token) = self.next_token() {
             // Check if we made progress
-            if self.context.cursor().offset() == offset_before {
+            if self.context.offset() == offset_before {
                 // No progress made, this indicates a bug in the rule
                 eprintln!("Warning: No progress made at offset {}", offset_before);
                 return None;
             }
             Some(token)
-        } else if self.context.cursor().offset() == offset_before {
+        } else if self.context.offset() == offset_before {
             // Stuck - no rule matched and cursor didn't advance
             eprintln!(
                 "Error: No rule matched character at offset {}",
                 offset_before
             );
-            eprintln!(
-                "Remaining input: {:?}",
-                self.context
-                    .cursor()
-                    .remaining()
-                    .chars()
-                    .take(10)
-                    .collect::<String>()
-            );
+            // Try to peek at the next character for error reporting
+            if let Some(ch) = self.context.peek() {
+                eprintln!("Current character: {:?}", ch);
+            }
             None
         } else {
             // Progress was made but no token returned (unusual case)
@@ -135,16 +130,10 @@ where
         // - In the worst case, each character could be a token (upper bound)
         // - In practice, tokens are often multi-character (identifiers, numbers, strings)
         // - We use character count as a conservative upper bound
-        let remaining = self.context.cursor().remaining();
 
-        // Count Unicode characters (not bytes) for accurate estimation
-        let char_count = remaining.chars().count();
-
-        // Use character count as upper bound since:
-        // - Single-char tokens (operators, punctuation): 1 char = 1 token
-        // - Multi-char tokens (identifiers, strings, numbers): N chars = 1 token
-        // - Whitespace may or may not be tokens depending on rules
-        // So char_count is a safe upper bound (most tokens span multiple chars)
-        (0, Some(char_count))
+        // For streaming contexts, we can't easily get remaining input
+        // So we return a conservative estimate
+        // This is fine since size_hint is just an optimization hint
+        (0, None)
     }
 }

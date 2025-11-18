@@ -1,13 +1,9 @@
-use common_framework::Position;
-use lexer_framework::streaming::TokenProducer;
+use common_framework::{Inbound, Outbound, Position, StreamingSignal};
 use lexer_framework::{
-    DefaultContext as LexContext, LexContext as _, LexToken, Lexer, LexingRule,
-    Position as LexPosition,
+    LexContext, LexToken, Lexer, LexingRule, StreamingLexContext, TokenProducer,
 };
 use parser_framework::{AstNode, ParseContext, Parser, ParsingRule, StreamingParseContext};
 use pipeline_core::Pipeline;
-
-use common_framework::{Inbound, Outbound, StreamingSignal};
 
 fn main() {
     let input = "3 + 4 * (2 - 1) / 5";
@@ -16,7 +12,11 @@ fn main() {
     let lexer_rules = build_lexer_rules();
     let parser_rules = build_parser_rules();
 
-    let lexer = FilteringProducer::new(Lexer::from_str(input.to_owned(), lexer_rules));
+    // Create lexer with streaming context, similar to parser
+    let lexer_context = StreamingLexContext::from(input);
+    let lexer = FilteringTokenProducer::new(Lexer::new(lexer_context, lexer_rules));
+
+    // Create parser with streaming context
     let parser = Parser::new(StreamingParseContext::new(), parser_rules);
 
     let pipeline = Pipeline::new(lexer, parser);
@@ -32,15 +32,15 @@ fn main() {
 
 #[derive(Debug, Clone, PartialEq)]
 enum CalcToken {
-    Number { value: f64, position: LexPosition },
-    Plus { position: LexPosition },
-    Minus { position: LexPosition },
-    Multiply { position: LexPosition },
-    Divide { position: LexPosition },
-    LeftParen { position: LexPosition },
-    RightParen { position: LexPosition },
-    Whitespace { position: LexPosition },
-    Eof { position: LexPosition },
+    Number { value: f64, position: Position },
+    Plus { position: Position },
+    Minus { position: Position },
+    Multiply { position: Position },
+    Divide { position: Position },
+    LeftParen { position: Position },
+    RightParen { position: Position },
+    Whitespace { position: Position },
+    Eof { position: Position },
 }
 
 impl LexToken for CalcToken {
@@ -75,7 +75,7 @@ impl LexToken for CalcToken {
     }
 }
 
-fn build_lexer_rules() -> Vec<Box<dyn LexingRule<LexContext, CalcToken>>> {
+fn build_lexer_rules() -> Vec<Box<dyn LexingRule<StreamingLexContext, CalcToken>>> {
     vec![
         Box::new(NumberRule),
         Box::new(OperatorRule),
@@ -86,8 +86,8 @@ fn build_lexer_rules() -> Vec<Box<dyn LexingRule<LexContext, CalcToken>>> {
 
 struct NumberRule;
 
-impl LexingRule<LexContext, CalcToken> for NumberRule {
-    fn try_match(&mut self, ctx: &mut LexContext) -> Option<CalcToken> {
+impl LexingRule<StreamingLexContext, CalcToken> for NumberRule {
+    fn try_match(&mut self, ctx: &mut StreamingLexContext) -> Option<CalcToken> {
         let position = ctx.position();
         let first = ctx.peek()?;
         if !first.is_ascii_digit() {
@@ -117,7 +117,7 @@ impl LexingRule<LexContext, CalcToken> for NumberRule {
 
 struct OperatorRule;
 
-impl LexingRule<LexContext, CalcToken> for OperatorRule {
+impl LexingRule<StreamingLexContext, CalcToken> for OperatorRule {
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
             '+' | '-' | '*' | '/' | '(' | ')' => Some(true),
@@ -125,7 +125,7 @@ impl LexingRule<LexContext, CalcToken> for OperatorRule {
         }
     }
 
-    fn try_match(&mut self, ctx: &mut LexContext) -> Option<CalcToken> {
+    fn try_match(&mut self, ctx: &mut StreamingLexContext) -> Option<CalcToken> {
         let position = ctx.position();
         let ch = ctx.peek()?;
         let token = match ch {
@@ -144,8 +144,8 @@ impl LexingRule<LexContext, CalcToken> for OperatorRule {
 
 struct WhitespaceRule;
 
-impl LexingRule<LexContext, CalcToken> for WhitespaceRule {
-    fn try_match(&mut self, ctx: &mut LexContext) -> Option<CalcToken> {
+impl LexingRule<StreamingLexContext, CalcToken> for WhitespaceRule {
+    fn try_match(&mut self, ctx: &mut StreamingLexContext) -> Option<CalcToken> {
         if ctx.peek().is_some_and(|ch| ch.is_whitespace()) {
             let position = ctx.position();
             ctx.consume_while(|ch| ch.is_whitespace());
@@ -162,8 +162,8 @@ impl LexingRule<LexContext, CalcToken> for WhitespaceRule {
 
 struct EofRule;
 
-impl LexingRule<LexContext, CalcToken> for EofRule {
-    fn try_match(&mut self, ctx: &mut LexContext) -> Option<CalcToken> {
+impl LexingRule<StreamingLexContext, CalcToken> for EofRule {
+    fn try_match(&mut self, ctx: &mut StreamingLexContext) -> Option<CalcToken> {
         if ctx.is_eof() {
             Some(CalcToken::Eof {
                 position: ctx.position(),
@@ -312,42 +312,49 @@ fn binary_op_from_token(token: &CalcToken) -> Option<BinaryOp> {
     }
 }
 
-// --- Filtering producer ---------------------------------------------------------------
-
-struct FilteringProducer<L> {
+/// A token producer that filters out whitespace tokens.
+/// This is a convenience wrapper that uses `LexToken::is_whitespace()` to filter tokens.
+///
+/// Note: This is a separate concern from streaming contexts. It filters tokens
+/// after they are produced, which is useful when you want to skip whitespace
+/// tokens in the pipeline.
+pub struct FilteringTokenProducer<L> {
     inner: L,
 }
 
-impl<L> FilteringProducer<L> {
-    fn new(inner: L) -> Self {
+impl<L> FilteringTokenProducer<L> {
+    /// Creates a new filtering token producer that wraps the given producer.
+    pub fn new(inner: L) -> Self {
         Self { inner }
     }
 }
 
-impl<L> TokenProducer<CalcToken> for FilteringProducer<L>
+impl<L, Tok> TokenProducer<Tok> for FilteringTokenProducer<L>
 where
-    L: TokenProducer<CalcToken>,
+    L: TokenProducer<Tok>,
+    Tok: LexToken,
 {
-    fn poll_token(&mut self) -> Option<CalcToken> {
+    fn poll_token(&mut self) -> Option<Tok> {
         while let Some(token) = self.inner.poll_token() {
-            if let Some(filtered) = filter_token(token) {
-                return Some(filtered);
+            if !token.is_whitespace() {
+                return Some(token);
             }
         }
         None
     }
 }
 
-impl<L, Ast> Outbound<CalcToken, Ast> for FilteringProducer<L>
+impl<L, Tok, Ast> Outbound<Tok, Ast> for FilteringTokenProducer<L>
 where
-    L: Outbound<CalcToken, Ast>,
+    L: Outbound<Tok, Ast>,
+    Tok: LexToken,
 {
-    fn next_signal(&mut self) -> Option<StreamingSignal<CalcToken, Ast>> {
+    fn next_signal(&mut self) -> Option<StreamingSignal<Tok, Ast>> {
         while let Some(signal) = self.inner.next_signal() {
             match signal {
                 StreamingSignal::SupplyToken(token) => {
-                    if let Some(filtered) = filter_token(token) {
-                        return Some(StreamingSignal::SupplyToken(filtered));
+                    if !token.is_whitespace() {
+                        return Some(StreamingSignal::SupplyToken(token));
                     }
                 }
                 other => return Some(other),
@@ -357,18 +364,11 @@ where
     }
 }
 
-impl<L, Ast> Inbound<CalcToken, Ast> for FilteringProducer<L>
+impl<L, Tok, Ast> Inbound<Tok, Ast> for FilteringTokenProducer<L>
 where
-    L: Inbound<CalcToken, Ast>,
+    L: Inbound<Tok, Ast>,
 {
-    fn handle_signal(&mut self, signal: StreamingSignal<CalcToken, Ast>) {
+    fn handle_signal(&mut self, signal: StreamingSignal<Tok, Ast>) {
         self.inner.handle_signal(signal);
-    }
-}
-
-fn filter_token(token: CalcToken) -> Option<CalcToken> {
-    match token {
-        CalcToken::Whitespace { .. } => None,
-        other => Some(other),
     }
 }

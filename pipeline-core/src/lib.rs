@@ -32,59 +32,54 @@ where
     pub fn run(mut self) -> Vec<Ast> {
         let mut results = Vec::new();
 
-        loop {
-            if let Some(signal) = self.parser.next_signal() {
-                match signal {
-                    StreamingSignal::Produced(mut nodes) => {
-                        results.append(&mut nodes);
-                        continue;
-                    }
-                    StreamingSignal::NeedToken(min_needed) => {
-                        self.lexer
-                            .handle_signal(StreamingSignal::RequestToken(min_needed));
-                        if let Some(token_signal) = self.lexer.next_signal() {
-                            match token_signal {
-                                StreamingSignal::SupplyToken(token) => {
-                                    self.parser
-                                        .handle_signal(StreamingSignal::SupplyToken(token));
-                                }
-                                StreamingSignal::EndOfInput => {
-                                    self.parser.handle_signal(StreamingSignal::EndOfInput);
-                                    results.extend(self.parser.finish());
-                                    break;
-                                }
-                                StreamingSignal::Blocked(reason)
-                                | StreamingSignal::Abort(reason) => {
-                                    self.parser
-                                        .handle_signal(StreamingSignal::Abort(reason.clone()));
-                                    self.lexer
-                                        .handle_signal(StreamingSignal::Abort(reason.clone()));
-                                    break;
-                                }
-                                _ => {}
-                            }
-                        } else {
-                            self.parser.handle_signal(StreamingSignal::EndOfInput);
-                            results.extend(self.parser.finish());
-                            break;
-                        }
-                        continue;
-                    }
-                    StreamingSignal::Finished(mut nodes) => {
-                        results.append(&mut nodes);
-                        break;
-                    }
-                    StreamingSignal::Blocked(reason) | StreamingSignal::Abort(reason) => {
-                        self.parser
-                            .handle_signal(StreamingSignal::Abort(reason.clone()));
-                        self.lexer
-                            .handle_signal(StreamingSignal::Abort(reason.clone()));
-                        break;
-                    }
-                    _ => {}
+        while let Some(signal) = self.parser.next_signal() {
+            match signal {
+                StreamingSignal::Produced(mut nodes) => {
+                    results.append(&mut nodes);
+                    continue;
                 }
-            } else {
-                break;
+                StreamingSignal::NeedToken(min_needed) => {
+                    self.lexer
+                        .handle_signal(StreamingSignal::RequestToken(min_needed));
+                    if let Some(token_signal) = self.lexer.next_signal() {
+                        match token_signal {
+                            StreamingSignal::SupplyToken(token) => {
+                                self.parser
+                                    .handle_signal(StreamingSignal::SupplyToken(token));
+                            }
+                            StreamingSignal::EndOfInput => {
+                                self.parser.handle_signal(StreamingSignal::EndOfInput);
+                                results.extend(self.parser.finish());
+                                break;
+                            }
+                            StreamingSignal::Blocked(reason) | StreamingSignal::Abort(reason) => {
+                                self.parser
+                                    .handle_signal(StreamingSignal::Abort(reason.clone()));
+                                self.lexer
+                                    .handle_signal(StreamingSignal::Abort(reason.clone()));
+                                break;
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        self.parser.handle_signal(StreamingSignal::EndOfInput);
+                        results.extend(self.parser.finish());
+                        break;
+                    }
+                    continue;
+                }
+                StreamingSignal::Finished(mut nodes) => {
+                    results.append(&mut nodes);
+                    break;
+                }
+                StreamingSignal::Blocked(reason) | StreamingSignal::Abort(reason) => {
+                    self.parser
+                        .handle_signal(StreamingSignal::Abort(reason.clone()));
+                    self.lexer
+                        .handle_signal(StreamingSignal::Abort(reason.clone()));
+                    break;
+                }
+                _ => {}
             }
         }
 

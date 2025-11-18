@@ -10,5 +10,5 @@ pub use context::{DefaultContext, LexContext};
 pub use cursor::{Checkpoint, Cursor};
 pub use lexer::Lexer;
 #[cfg(feature = "streaming")]
-pub use streaming::TokenProducer;
+pub use streaming::{StreamingLexContext, TokenProducer};
 pub use traits::{LexToken, LexingRule};

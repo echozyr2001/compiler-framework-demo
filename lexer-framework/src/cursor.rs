@@ -129,10 +129,7 @@ impl Cursor {
 
     /// Creates a checkpoint that can be restored later.
     pub fn checkpoint(&self) -> Checkpoint {
-        Checkpoint {
-            current: self.current,
-            position: self.position,
-        }
+        Checkpoint::new(self.current, self.position)
     }
 
     /// Restores the cursor to a previous checkpoint.
@@ -147,4 +144,21 @@ impl Cursor {
 pub struct Checkpoint {
     current: usize,
     position: Position,
+}
+
+impl Checkpoint {
+    /// Creates a new checkpoint with the given current offset and position.
+    pub fn new(current: usize, position: Position) -> Self {
+        Self { current, position }
+    }
+
+    /// Returns the token index (byte offset) stored in this checkpoint.
+    pub fn current(&self) -> usize {
+        self.current
+    }
+
+    /// Returns the position stored in this checkpoint.
+    pub fn position(&self) -> Position {
+        self.position
+    }
 }
