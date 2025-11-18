@@ -7,6 +7,14 @@ edition = "2021"
 name = "lexer_framework"
 path = "src/lib.rs"
 
+[[example]]
+name = "calc_lexer"
+path = "examples/calc_lexer.rs"
+
+[[example]]
+name = "json_lexer"
+path = "examples/json_lexer.rs"
+
 [features]
 default = []
 streaming = []

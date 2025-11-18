@@ -40,4 +40,3 @@ impl Checkpoint {
         self.index
     }
 }
-

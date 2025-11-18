@@ -7,6 +7,10 @@ edition = "2021"
 name = "parser_framework"
 path = "src/lib.rs"
 
+[[example]]
+name = "simple_parser"
+path = "examples/simple_parser.rs"
+
 [features]
 default = []
 streaming = []

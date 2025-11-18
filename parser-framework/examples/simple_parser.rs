@@ -326,17 +326,4 @@ fn main() {
     } else {
         println!("解析失败");
     }
-
-    println!("\n");
-    println!("=== 示例说明 ===");
-    println!("1. 定义 Token 类型: SimpleToken");
-    println!("2. 定义 AST 节点类型: SimpleExpr (实现 AstNode trait)");
-    println!("3. 实现解析规则: NumberRule, BinaryRule (实现 ParsingRule trait)");
-    println!("4. 使用 Parser::new() 创建解析器");
-    println!("5. 调用 parser.parse_one() 解析 AST");
-    println!("\n关键点:");
-    println!("- 规则按优先级排序，高优先级规则先尝试");
-    println!("- quick_check() 可以快速跳过不匹配的规则");
-    println!("- 规则失败时会自动恢复检查点（checkpoint）");
-    println!("- Context 提供 peek(), advance(), checkpoint(), restore() 等方法");
 }

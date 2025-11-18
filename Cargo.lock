@@ -7,27 +7,10 @@ name = "common-framework"
 version = "0.1.0"
 
 [[package]]
-name = "lexer-example"
-version = "0.1.0"
-dependencies = [
- "lexer-framework",
-]
-
-[[package]]
 name = "lexer-framework"
 version = "0.1.0"
 dependencies = [
  "common-framework",
-]
-
-[[package]]
-name = "parser-example"
-version = "0.1.0"
-dependencies = [
- "common-framework",
- "lexer-framework",
- "parser-framework",
- "pipeline-core",
 ]
 
 [[package]]
