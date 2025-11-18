@@ -1,4 +1,4 @@
-use common_framework::{Position, TextSlice};
+use common_framework::{Checkpoint, Position, TextSlice};
 use std::sync::Arc;
 
 /// A cursor for traversing input text during lexing.
@@ -134,31 +134,7 @@ impl Cursor {
 
     /// Restores the cursor to a previous checkpoint.
     pub fn restore(&mut self, checkpoint: Checkpoint) {
-        self.current = checkpoint.current;
-        self.position = checkpoint.position;
-    }
-}
-
-/// A checkpoint for cursor position.
-#[derive(Debug, Clone, Copy)]
-pub struct Checkpoint {
-    current: usize,
-    position: Position,
-}
-
-impl Checkpoint {
-    /// Creates a new checkpoint with the given current offset and position.
-    pub fn new(current: usize, position: Position) -> Self {
-        Self { current, position }
-    }
-
-    /// Returns the token index (byte offset) stored in this checkpoint.
-    pub fn current(&self) -> usize {
-        self.current
-    }
-
-    /// Returns the position stored in this checkpoint.
-    pub fn position(&self) -> Position {
-        self.position
+        self.current = checkpoint.current();
+        self.position = checkpoint.position();
     }
 }

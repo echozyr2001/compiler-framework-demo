@@ -1,28 +1,4 @@
-use common_framework::Position;
-
-/// A checkpoint for parser state (token position).
-#[derive(Debug, Clone, Copy)]
-pub struct Checkpoint {
-    token_index: usize,
-    position: Position,
-}
-
-impl Checkpoint {
-    pub fn new(token_index: usize, position: Position) -> Self {
-        Self {
-            token_index,
-            position,
-        }
-    }
-
-    pub fn token_index(&self) -> usize {
-        self.token_index
-    }
-
-    pub fn position(&self) -> Position {
-        self.position
-    }
-}
+use common_framework::{Checkpoint, Position};
 
 /// Context for parsing operations in CGP (Context-Generic Programming).
 /// This trait allows parsing rules to access token stream information

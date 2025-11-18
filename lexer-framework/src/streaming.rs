@@ -1,7 +1,7 @@
 use crate::context::LexContext;
 use crate::cursor::Cursor;
 use crate::lexer::Lexer;
-use common_framework::{Inbound, Outbound, Position, StreamingSignal};
+use common_framework::{Checkpoint, Inbound, Outbound, Position, StreamingSignal};
 use std::sync::Arc;
 
 /// Streaming-friendly lex context that can be fed characters incrementally.
@@ -129,11 +129,11 @@ impl LexContext for StreamingLexContext {
         common_framework::TextSlice::new(buffer_arc, start, end)
     }
 
-    fn checkpoint(&self) -> crate::cursor::Checkpoint {
-        crate::cursor::Checkpoint::new(self.current, self.position)
+    fn checkpoint(&self) -> Checkpoint {
+        Checkpoint::new(self.current, self.position)
     }
 
-    fn restore(&mut self, checkpoint: crate::cursor::Checkpoint) {
+    fn restore(&mut self, checkpoint: Checkpoint) {
         self.current = checkpoint.current();
         self.position = checkpoint.position();
     }

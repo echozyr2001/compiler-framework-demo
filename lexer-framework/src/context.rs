@@ -1,5 +1,5 @@
 use crate::cursor::Cursor;
-use common_framework::{Position, TextSlice};
+use common_framework::{Checkpoint, Position, TextSlice};
 
 /// Context for lexing operations in CGP (Context-Generic Programming).
 /// This trait allows lexing rules to access contextual information
@@ -40,12 +40,12 @@ pub trait LexContext {
     }
 
     /// Creates a checkpoint of the current state.
-    fn checkpoint(&self) -> crate::cursor::Checkpoint {
+    fn checkpoint(&self) -> Checkpoint {
         self.cursor().checkpoint()
     }
 
     /// Restores the cursor to a checkpoint.
-    fn restore(&mut self, checkpoint: crate::cursor::Checkpoint) {
+    fn restore(&mut self, checkpoint: Checkpoint) {
         self.cursor_mut().restore(checkpoint);
     }
 

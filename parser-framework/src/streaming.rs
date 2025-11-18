@@ -1,7 +1,7 @@
 use crate::context::{extract_position_from_token, ParseContext};
 use crate::parser::Parser;
 use crate::traits::AstNode;
-use common_framework::{Inbound, Outbound, Position, StreamingSignal};
+use common_framework::{Checkpoint, Inbound, Outbound, Position, StreamingSignal};
 use std::fmt::Debug;
 
 /// Streaming-friendly parse context that can be fed tokens incrementally.
@@ -85,11 +85,11 @@ where
         self.current
     }
 
-    fn checkpoint(&self) -> crate::context::Checkpoint {
-        crate::context::Checkpoint::new(self.current, self.position)
+    fn checkpoint(&self) -> Checkpoint {
+        Checkpoint::new(self.current, self.position)
     }
 
-    fn restore(&mut self, checkpoint: crate::context::Checkpoint) {
+    fn restore(&mut self, checkpoint: Checkpoint) {
         self.current = checkpoint.token_index();
         self.position = checkpoint.position();
     }

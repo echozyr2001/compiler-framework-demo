@@ -4,8 +4,8 @@ pub mod parser;
 pub mod streaming;
 pub mod traits;
 
-pub use common_framework::Position;
-pub use context::{Checkpoint, DefaultContext, ParseContext};
+pub use common_framework::{Checkpoint, Position};
+pub use context::{DefaultContext, ParseContext};
 pub use parser::Parser;
 #[cfg(feature = "streaming")]
 pub use streaming::{StreamingParseContext, TokenConsumer};

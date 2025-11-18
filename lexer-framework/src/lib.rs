@@ -5,9 +5,9 @@ pub mod lexer;
 pub mod streaming;
 pub mod traits;
 
-pub use common_framework::Position;
+pub use common_framework::{Checkpoint, Position};
 pub use context::{DefaultContext, LexContext};
-pub use cursor::{Checkpoint, Cursor};
+pub use cursor::Cursor;
 pub use lexer::Lexer;
 #[cfg(feature = "streaming")]
 pub use streaming::{StreamingLexContext, TokenProducer};
