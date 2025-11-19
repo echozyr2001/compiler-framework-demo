@@ -283,6 +283,7 @@ name = "pipeline-core"
 version = "0.1.0"
 dependencies = [
  "common-framework",
+ "criterion",
  "lexer-framework",
  "parser-framework",
 ]

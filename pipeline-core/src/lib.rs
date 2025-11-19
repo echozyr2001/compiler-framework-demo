@@ -67,6 +67,22 @@ where
             Parser::<ParseDefaultContext<Tok>, Tok, Ast>::from_tokens(tokens, parser_rules);
         parser.parse()
     }
+
+    /// Runs the pipeline with a pre-created lexer and a custom parser builder closure.
+    ///
+    /// This allows intervening between lexing and parsing, e.g., for filtering tokens.
+    pub fn run_custom<LCtx, F>(mut lexer: Lexer<LCtx, Tok>, parser_builder: F) -> Vec<Ast>
+    where
+        LCtx: lexer_framework::LexContext,
+        F: FnOnce(Vec<Tok>) -> Parser<ParseDefaultContext<Tok>, Tok, Ast>,
+    {
+        // Stage 1: Tokenize entire input
+        let tokens: Vec<Tok> = lexer.tokenize();
+
+        // Stage 2: Build parser and parse
+        let mut parser = parser_builder(tokens);
+        parser.parse()
+    }
 }
 
 impl<Tok, Ast> Default for BatchPipeline<Tok, Ast>
