@@ -60,12 +60,14 @@ where
     /// 1. Using quick_check() to skip rules that definitely won't match
     /// 2. Only creating checkpoints when actually trying a rule
     pub fn next_node(&mut self) -> Option<Ast> {
-        for rule in &mut self.rules {
-            // Get current token for quick_check - do it inside loop to avoid borrowing issues
-            let current_token = self.context.peek();
+        // Optimization: Peek once before iterating rules.
+        // We clone the token to avoid holding an immutable borrow on context
+        // while we need a mutable borrow later for try_parse.
+        let current_token = self.context.peek().cloned();
 
+        for rule in &mut self.rules {
             // Quick check optimization: skip rules that definitely won't match
-            if let Some(false) = rule.quick_check(current_token) {
+            if let Some(false) = rule.quick_check(current_token.as_ref()) {
                 continue;
             }
 

@@ -275,6 +275,7 @@ name = "parser-framework"
 version = "0.1.0"
 dependencies = [
  "common-framework",
+ "criterion",
 ]
 
 [[package]]

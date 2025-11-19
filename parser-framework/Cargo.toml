@@ -11,10 +11,16 @@ path = "src/lib.rs"
 name = "simple_parser"
 path = "examples/simple_parser.rs"
 
+[[bench]]
+name = "batch_bench"
+harness = false
+
 [features]
 default = []
-streaming = []
+streaming = ["common-framework/streaming"]
 
 [dependencies]
 common-framework = { path = "../common-framework" }
 
+[dev-dependencies]
+criterion = "0.5"
