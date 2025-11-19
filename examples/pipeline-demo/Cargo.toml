@@ -7,5 +7,5 @@ edition = "2021"
 common-framework = { path = "../../common-framework" }
 lexer-framework = { path = "../../lexer-framework", features = ["streaming"] }
 parser-framework = { path = "../../parser-framework", features = ["streaming"] }
-pipeline-core = { path = "../../pipeline-core" }
+pipeline-core = { path = "../../pipeline-core", features = ["streaming"] }
 
