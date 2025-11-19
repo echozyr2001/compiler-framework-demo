@@ -45,6 +45,13 @@ impl Cursor {
 
     /// Returns the next character without advancing the cursor.
     pub fn peek(&self) -> Option<char> {
+        // Fast path for ASCII
+        if self.current < self.buffer.len() {
+            let b = self.buffer.as_bytes()[self.current];
+            if b < 128 {
+                return Some(b as char);
+            }
+        }
         self.buffer[self.current..].chars().next()
     }
 
@@ -71,6 +78,21 @@ impl Cursor {
     pub fn advance(&mut self) -> Option<char> {
         if self.is_eof() {
             return None;
+        }
+
+        // Fast path for ASCII
+        let b = self.buffer.as_bytes()[self.current];
+        if b < 128 {
+            let ch = b as char;
+            if ch == '\n' {
+                self.position.line += 1;
+                self.position.column = 1;
+            } else {
+                self.position.column += 1;
+            }
+            self.position.offset += 1;
+            self.current += 1;
+            return Some(ch);
         }
 
         let ch = self.peek()?;

@@ -54,6 +54,12 @@ pub trait LexContext {
     fn offset(&self) -> usize {
         self.cursor().offset()
     }
+
+    /// Returns the estimated remaining length of the input.
+    /// Returns None if unknown (e.g. streaming).
+    fn remaining_len(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// A simple default context implementation.
@@ -81,5 +87,14 @@ impl LexContext for DefaultContext {
 
     fn cursor_mut(&mut self) -> &mut Cursor {
         &mut self.cursor
+    }
+
+    fn remaining_len(&self) -> Option<usize> {
+        if self.cursor.is_eof() {
+            Some(0)
+        } else {
+            // This is a rough estimate (bytes), not tokens
+            Some(self.cursor.remaining().len())
+        }
     }
 }

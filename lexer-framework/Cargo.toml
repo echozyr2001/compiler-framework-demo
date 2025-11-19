@@ -15,6 +15,10 @@ path = "examples/calc_lexer.rs"
 name = "json_lexer"
 path = "examples/json_lexer.rs"
 
+[[bench]]
+name = "batch_bench"
+harness = false
+
 [features]
 default = []
 streaming = []
@@ -22,3 +26,5 @@ streaming = []
 [dependencies]
 common-framework = { path = "../common-framework" }
 
+[dev-dependencies]
+criterion = "0.5"

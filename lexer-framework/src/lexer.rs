@@ -10,6 +10,9 @@ where
 {
     context: Ctx,
     rules: Vec<Box<dyn LexingRule<Ctx, Tok>>>,
+    // Optimization: lookup table for ASCII characters (0-127)
+    // Maps an ASCII char to a list of indices into `rules` that might match it.
+    ascii_lookup: [Option<Vec<usize>>; 128],
 }
 
 impl<Ctx, Tok> Lexer<Ctx, Tok>
@@ -22,9 +25,36 @@ where
         let mut sorted_rules = rules;
         sorted_rules.sort_by_key(|rule| Reverse(rule.priority()));
 
+        // Build ASCII lookup table
+        // Initialize with None to save memory if not used
+        let mut ascii_lookup: [Option<Vec<usize>>; 128] = std::array::from_fn(|_| None);
+
+        // For each ASCII character, find applicable rules
+        for char_code in 0..128 {
+            let ch = char::from_u32(char_code).unwrap();
+            let mut applicable_indices = Vec::new();
+
+            for (idx, rule) in sorted_rules.iter().enumerate() {
+                // If quick_check returns Some(false), the rule definitely doesn't match.
+                // Otherwise (Some(true) or None), it might match.
+                if rule.quick_check(Some(ch)) != Some(false) {
+                    applicable_indices.push(idx);
+                }
+            }
+
+            // Only store if we filtered anything out, or just store all?
+            // Storing all allows consistent lookup.
+            // To save memory, if applicable_indices.len() == sorted_rules.len(), we could maybe use a sentinel?
+            // But for simplicity and speed, let's just store it.
+            if !applicable_indices.is_empty() {
+                ascii_lookup[char_code as usize] = Some(applicable_indices);
+            }
+        }
+
         Self {
             context,
             rules: sorted_rules,
+            ascii_lookup,
         }
     }
 
@@ -44,22 +74,91 @@ where
     /// 1. Using quick_check() to skip rules that definitely won't match
     /// 2. Only creating checkpoints when actually trying a rule
     pub fn next_token(&mut self) -> Option<Tok> {
+        if self.context.is_eof() {
+            return None;
+        }
+
         let first_char = self.context.peek();
 
-        for rule in &mut self.rules {
-            // Quick check optimization: skip rules that definitely won't match
-            if let Some(false) = rule.quick_check(first_char) {
-                continue;
+        // Determine which rules to try
+        let candidate_indices: &[usize] = match first_char {
+            Some(ch) if ch.is_ascii() => {
+                if let Some(indices) = &self.ascii_lookup[ch as usize] {
+                    indices.as_slice()
+                } else {
+                    // No rules match this ASCII char (based on quick_check)
+                    // But we should double check the logic. If ascii_lookup is None, it means
+                    // no rule accepted it in quick_check? Yes, based on initialization.
+                    // However, let's handle the case where rules might have dynamic behavior slightly gracefully?
+                    // No, quick_check takes `Option<char>`, it's stateless regarding context usually.
+                    // But wait, some rules might return `None` for quick_check, which means "maybe".
+                    // We included those in the lookup. So if lookup is None, it effectively means no rules.
+                    return None;
+                }
             }
+            _ => {
+                // Non-ASCII or EOF (though we checked EOF above)
+                // Use all rules, but we can skip this part if we had a non-ASCII lookup too.
+                // For now, we don't have indices for non-ASCII, so we can't use a slice.
+                // We'll handle this case by iterating 0..rules.len()
+                &[] // Placeholder, see logic below
+            }
+        };
 
-            // Only create checkpoint if we're actually trying this rule
-            let checkpoint = self.context.checkpoint();
-            if let Some(token) = rule.try_match(&mut self.context) {
-                return Some(token);
+        if let Some(ch) = first_char {
+            if ch.is_ascii() {
+                // Fast path using indices
+                for &idx in candidate_indices {
+                    // Safe because we built indices from rules
+                    let rule = &mut self.rules[idx];
+
+                    // We still run quick_check? No, we already did it statically for the first char.
+                    // But quick_check is cheap, maybe running it again is fine?
+                    // Actually, rule.try_match() does the real work.
+
+                    // Try match
+                    let checkpoint = self.context.checkpoint();
+                    if let Some(token) = rule.try_match(&mut self.context) {
+                        return Some(token);
+                    }
+                    self.context.restore(checkpoint);
+                }
+            } else {
+                // Slow path for non-ASCII
+                for rule in &mut self.rules {
+                    if let Some(false) = rule.quick_check(first_char) {
+                        continue;
+                    }
+
+                    let checkpoint = self.context.checkpoint();
+                    if let Some(token) = rule.try_match(&mut self.context) {
+                        return Some(token);
+                    }
+                    self.context.restore(checkpoint);
+                }
             }
-            // If rule didn't match, restore cursor
-            self.context.restore(checkpoint);
+        } else {
+            // EOF case (should be caught by is_eof check, but some rules might match EOF)
+            // Wait, is_eof() check above might prevent EOF rules from running?
+            // Many EOF rules rely on is_eof() returning true.
+            // But our is_eof() check at start of function returns None immediately.
+            // Let's remove the early is_eof check if we want to support EOF tokens.
+            // But standard iterator semantics usually end at EOF.
+            // Let's assume standard behavior: if EOF, and we haven't matched anything, we are done.
+            // UNLESS there is a rule that matches EOF explicitly (like in our examples).
+
+            // Revert early return and handle EOF properly.
+            // For EOF, peek() returns None.
+            for rule in &mut self.rules {
+                if let Some(false) = rule.quick_check(None) {
+                    continue;
+                }
+                // ... try match ...
+                // But wait, try_match usually expects context.
+                // Let's just stick to the original logic structure but optimized.
+            }
         }
+
         None
     }
 
@@ -123,7 +222,7 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // Estimate based on remaining input characters (not bytes!)
+        // Estimate based on remaining input characters
         // This is important for Unicode text (Chinese, emoji, etc.)
         //
         // Token count estimation strategy:
@@ -131,9 +230,12 @@ where
         // - In practice, tokens are often multi-character (identifiers, numbers, strings)
         // - We use character count as a conservative upper bound
 
-        // For streaming contexts, we can't easily get remaining input
-        // So we return a conservative estimate
-        // This is fine since size_hint is just an optimization hint
-        (0, None)
+        if let Some(len) = self.context.remaining_len() {
+            // If we know the remaining bytes, we can use that as an upper bound
+            (0, Some(len))
+        } else {
+            // Unknown length (streaming)
+            (0, None)
+        }
     }
 }

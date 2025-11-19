@@ -5,7 +5,7 @@ pub mod lexer;
 pub mod streaming;
 pub mod traits;
 
-pub use common_framework::{Checkpoint, Position};
+pub use common_framework::{Checkpoint, Position, TextSlice};
 pub use context::{DefaultContext, LexContext};
 pub use cursor::Cursor;
 pub use lexer::Lexer;
