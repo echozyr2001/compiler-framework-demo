@@ -56,11 +56,11 @@ impl<Tok> ParseContext<Tok> for StreamingParseContext<Tok>
 where
     Tok: Clone + Debug,
 {
-    fn peek(&self) -> Option<&Tok> {
+    fn peek(&mut self) -> Option<&Tok> {
         self.tokens.get(self.current)
     }
 
-    fn peek_at(&self, offset: usize) -> Option<&Tok> {
+    fn peek_at(&mut self, offset: usize) -> Option<&Tok> {
         self.tokens.get(self.current + offset)
     }
 
@@ -77,7 +77,7 @@ where
         self.position
     }
 
-    fn is_eof(&self) -> bool {
+    fn is_eof(&mut self) -> bool {
         self.finished && self.current >= self.tokens.len()
     }
 
@@ -128,7 +128,7 @@ where
     fn next_signal(&mut self) -> Option<StreamingSignal<Tok, Ast>> {
         // In streaming mode, we only try to parse when we have EOF,
         // otherwise we just request more tokens
-        if self.context().is_eof() {
+        if self.context_mut().is_eof() {
             // When EOF is reached, parse all remaining tokens
             let remaining = self.parse();
             if !remaining.is_empty() {

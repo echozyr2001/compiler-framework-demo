@@ -1,8 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use lexer_framework::{DefaultContext as LexDefaultContext, LexContext, Lexer, LexingRule};
 use parser_framework::{
-    parse_pratt, AstNode, DefaultContext as ParseContext, ParseContext as ParseContextTrait,
-    Parser, ParsingRule, Position, PrattConfig,
+    parse_pratt, AstNode, DefaultContext, LazyContext, ParseContext, Parser, ParsingRule, Position,
+    PrattConfig,
 };
 use pipeline_core::BatchPipeline;
 // use common_framework::TextSlice; // Unused
@@ -106,7 +106,10 @@ impl LexingRule<LexDefaultContext, Token> for OpRule {
 
 // --- Parser Rules (Pratt) ---
 struct ExprConfig;
-impl PrattConfig<ParseContext<Token>, Token, Ast> for ExprConfig {
+impl<Ctx> PrattConfig<Ctx, Token, Ast> for ExprConfig
+where
+    Ctx: ParseContext<Token>,
+{
     fn prefix_op(&self, token: &Token) -> Option<((), u8)> {
         match token {
             Token::Number(_) | Token::LParen => Some(((), 0)),
@@ -120,14 +123,9 @@ impl PrattConfig<ParseContext<Token>, Token, Ast> for ExprConfig {
             _ => None,
         }
     }
-    fn parse_prefix<F>(
-        &self,
-        token: Token,
-        ctx: &mut ParseContext<Token>,
-        parser: &F,
-    ) -> Option<Ast>
+    fn parse_prefix<F>(&self, token: Token, ctx: &mut Ctx, parser: &F) -> Option<Ast>
     where
-        F: Fn(&mut ParseContext<Token>, u8) -> Option<Ast>,
+        F: Fn(&mut Ctx, u8) -> Option<Ast>,
     {
         match token {
             Token::Number(n) => Some(Ast::Number(n)),
@@ -148,11 +146,11 @@ impl PrattConfig<ParseContext<Token>, Token, Ast> for ExprConfig {
         left: Ast,
         token: Token,
         r_bp: u8,
-        ctx: &mut ParseContext<Token>,
+        ctx: &mut Ctx,
         parser: &F,
     ) -> Option<Ast>
     where
-        F: Fn(&mut ParseContext<Token>, u8) -> Option<Ast>,
+        F: Fn(&mut Ctx, u8) -> Option<Ast>,
     {
         let op = match token {
             Token::Plus => '+',
@@ -169,8 +167,11 @@ impl PrattConfig<ParseContext<Token>, Token, Ast> for ExprConfig {
 struct ExprRule {
     config: ExprConfig,
 }
-impl ParsingRule<ParseContext<Token>, Token, Ast> for ExprRule {
-    fn try_parse(&mut self, ctx: &mut ParseContext<Token>) -> Option<Ast> {
+impl<Ctx> ParsingRule<Ctx, Token, Ast> for ExprRule
+where
+    Ctx: ParseContext<Token>,
+{
+    fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Ast> {
         parse_pratt(ctx, &self.config, 0)
     }
     fn quick_check(&self, token: Option<&Token>) -> Option<bool> {
@@ -207,7 +208,7 @@ fn bench_pipeline(c: &mut Criterion) {
             // Let's check signature.
             // It takes `lexer_rules` and `parser_rules`.
 
-            let parser_rules: Vec<Box<dyn ParsingRule<ParseContext<Token>, Token, Ast>>> =
+            let parser_rules: Vec<Box<dyn ParsingRule<DefaultContext<Token>, Token, Ast>>> =
                 vec![Box::new(ExprRule { config: ExprConfig })];
 
             // Use the convenience method
@@ -235,7 +236,7 @@ fn bench_pipeline(c: &mut Criterion) {
                     .into_iter()
                     .filter(|t| !matches!(t, Token::Whitespace))
                     .collect();
-                Parser::<ParseContext<Token>, Token, Ast>::from_tokens(filtered, parser_rules)
+                Parser::<DefaultContext<Token>, Token, Ast>::from_tokens(filtered, parser_rules)
             });
         })
     });
@@ -243,5 +244,48 @@ fn bench_pipeline(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_pipeline);
+fn bench_lazy_pipeline(c: &mut Criterion) {
+    let mut group = c.benchmark_group("pipeline_lazy");
+
+    let lines = 1000;
+    let input = generate_input(lines);
+
+    group.throughput(Throughput::Bytes(input.len() as u64));
+    group.bench_function("parse_expr_1k_lines_lazy", |b| {
+        b.iter(|| {
+            let lexer_rules: Vec<Box<dyn LexingRule<LexDefaultContext, Token>>> = vec![
+                Box::new(WhitespaceRule),
+                Box::new(NumberRule),
+                Box::new(OpRule),
+            ];
+
+            // Need explicit type annotation for the rules because LazyContext is complex
+            // LazyContext type: LazyContext<Filter<...>, Token>
+            // The iterator type is opaque (Filter), making it hard to name the type explicitly.
+            // But ParsingRule is a trait object, so we can use `Box<dyn ...>`.
+            // However, `dyn ParsingRule` needs a concrete Context type parameter.
+
+            // Strategy: Use type inference where possible.
+            let lexer = Lexer::from_str(input.as_str(), lexer_rules);
+            let filtered_iter = lexer.filter(|t| !matches!(t, Token::Whitespace));
+
+            // Create context
+            // Window size 16 is plenty for this grammar (LL(1) basically)
+            let context = LazyContext::new(filtered_iter, 16);
+
+            // Construct parser rules for THIS context type
+            // This is the tricky part: we need to construct the Vec<Box<dyn ParsingRule...>>
+            // knowing the exact type of context.
+            let rule = ExprRule { config: ExprConfig };
+            let rules = vec![Box::new(rule) as Box<dyn ParsingRule<_, _, _>>];
+
+            let mut parser = Parser::new(context, rules);
+            parser.parse()
+        })
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_pipeline, bench_lazy_pipeline);
 criterion_main!(benches);

@@ -68,30 +68,37 @@ where
     let mut left = config.parse_prefix(token, ctx, &recursive_parser)?;
 
     // 3. Look ahead for an infix operator
-    while let Some(peek_token) = ctx.peek() {
+    loop {
+        // Peek and check binding power without holding the borrow
+        let (l_bp, r_bp) = {
+            let peek_token = match ctx.peek() {
+                Some(t) => t,
+                None => break,
+            };
+            match config.infix_op(peek_token) {
+                Some(bp) => bp,
+                None => break,
+            }
+        };
+
         // 4. Check binding power
-        if let Some((l_bp, r_bp)) = config.infix_op(peek_token) {
-            // If the operator binds less tightly than our current context, stop.
-            if l_bp < min_bp {
-                break;
-            }
-
-            // 5. Consume operator and parse infix part (led)
-            let op = ctx.advance().unwrap(); // Safe because we peeked
-
-            // Pass right_binding_power to recursive call indirectly via parse_infix
-            if let Some(new_left) =
-                config.parse_infix(left.clone(), op, r_bp, ctx, &recursive_parser)
-            {
-                left = new_left;
-            } else {
-                // If infix parse fails, maybe it wasn't an infix usage after all?
-                return None;
-            }
-            continue;
+        // If the operator binds less tightly than our current context, stop.
+        if l_bp < min_bp {
+            break;
         }
-        break;
-    }
+
+        // 5. Consume operator and parse infix part (led)
+        let op = ctx.advance().unwrap(); // Safe because we peeked
+
+        // Pass right_binding_power to recursive call indirectly via parse_infix
+        if let Some(new_left) = config.parse_infix(left.clone(), op, r_bp, ctx, &recursive_parser) {
+            left = new_left;
+        } else {
+            // If infix parse fails, maybe it wasn't an infix usage after all?
+            return None;
+        }
+        continue;
+    } // End of loop
 
     Some(left)
 }

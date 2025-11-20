@@ -1,4 +1,5 @@
 pub mod context;
+pub mod lazy_context;
 pub mod parser;
 pub mod pratt;
 #[cfg(feature = "streaming")]
@@ -7,6 +8,7 @@ pub mod traits;
 
 pub use common_framework::{Checkpoint, Position};
 pub use context::{DefaultContext, ParseContext};
+pub use lazy_context::LazyContext;
 pub use parser::Parser;
 pub use pratt::{parse_pratt, PrattConfig};
 #[cfg(feature = "streaming")]

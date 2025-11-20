@@ -8,10 +8,10 @@ where
     Tok: Clone + std::fmt::Debug,
 {
     /// Returns the current token without advancing.
-    fn peek(&self) -> Option<&Tok>;
+    fn peek(&mut self) -> Option<&Tok>;
 
     /// Returns the token at the given offset from current position without advancing.
-    fn peek_at(&self, offset: usize) -> Option<&Tok>;
+    fn peek_at(&mut self, offset: usize) -> Option<&Tok>;
 
     /// Advances the token stream and returns the consumed token.
     fn advance(&mut self) -> Option<Tok>;
@@ -20,7 +20,7 @@ where
     fn position(&self) -> Position;
 
     /// Returns true if at end of token stream.
-    fn is_eof(&self) -> bool;
+    fn is_eof(&mut self) -> bool;
 
     /// Returns the current token index.
     fn token_index(&self) -> usize;
@@ -90,11 +90,11 @@ impl<Tok> ParseContext<Tok> for DefaultContext<Tok>
 where
     Tok: Clone + std::fmt::Debug,
 {
-    fn peek(&self) -> Option<&Tok> {
+    fn peek(&mut self) -> Option<&Tok> {
         self.tokens.get(self.current)
     }
 
-    fn peek_at(&self, offset: usize) -> Option<&Tok> {
+    fn peek_at(&mut self, offset: usize) -> Option<&Tok> {
         self.tokens.get(self.current + offset)
     }
 
@@ -116,7 +116,9 @@ where
 
     fn position(&self) -> Position {
         // Try to get position from current token if available
-        if let Some(token) = self.peek() {
+        // Note: Since peek is now mutable, we can't easily use it here with &self.
+        // But DefaultContext has direct access to tokens, so we can implement it directly.
+        if let Some(token) = self.tokens.get(self.current) {
             if let Some(token_position) = extract_position_from_token(token) {
                 return token_position;
             }
@@ -124,7 +126,7 @@ where
         self.position
     }
 
-    fn is_eof(&self) -> bool {
+    fn is_eof(&mut self) -> bool {
         self.current >= self.tokens.len()
     }
 
@@ -141,7 +143,7 @@ where
         self.position = checkpoint.position();
 
         // Try to update position from restored token if available
-        if let Some(token) = self.peek() {
+        if let Some(token) = self.tokens.get(self.current) {
             if let Some(token_position) = extract_position_from_token(token) {
                 self.position = token_position;
             }
