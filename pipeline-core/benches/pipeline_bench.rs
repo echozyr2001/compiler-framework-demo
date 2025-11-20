@@ -1,6 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use lexer_framework::{Lexer, LexingRule, DefaultContext as LexDefaultContext, LexContext};
-use parser_framework::{Parser, ParsingRule, DefaultContext as ParseContext, AstNode, Position, PrattConfig, parse_pratt, ParseContext as ParseContextTrait};
+use lexer_framework::{DefaultContext as LexDefaultContext, LexContext, Lexer, LexingRule};
+use parser_framework::{
+    parse_pratt, AstNode, DefaultContext as ParseContext, ParseContext as ParseContextTrait,
+    Parser, ParsingRule, Position, PrattConfig,
+};
 use pipeline_core::BatchPipeline;
 // use common_framework::TextSlice; // Unused
 
@@ -18,11 +21,21 @@ enum Token {
 }
 
 impl lexer_framework::LexToken for Token {
-    fn position(&self) -> Option<Position> { None }
-    fn is_eof(&self) -> bool { false }
-    fn is_newline(&self) -> bool { false }
-    fn is_whitespace(&self) -> bool { matches!(self, Token::Whitespace) }
-    fn is_indent(&self) -> bool { false }
+    fn position(&self) -> Option<Position> {
+        None
+    }
+    fn is_eof(&self) -> bool {
+        false
+    }
+    fn is_newline(&self) -> bool {
+        false
+    }
+    fn is_whitespace(&self) -> bool {
+        matches!(self, Token::Whitespace)
+    }
+    fn is_indent(&self) -> bool {
+        false
+    }
 }
 
 #[allow(dead_code)]
@@ -33,7 +46,9 @@ enum Ast {
 }
 
 impl AstNode for Ast {
-    fn position(&self) -> Option<Position> { None }
+    fn position(&self) -> Option<Position> {
+        None
+    }
 }
 
 // --- Lexer Rules ---
@@ -41,21 +56,31 @@ struct WhitespaceRule;
 impl LexingRule<LexDefaultContext, Token> for WhitespaceRule {
     fn try_match(&mut self, ctx: &mut LexDefaultContext) -> Option<Token> {
         let s = ctx.consume_while(|c| c.is_whitespace());
-        if !s.is_empty() { Some(Token::Whitespace) } else { None }
+        if !s.is_empty() {
+            Some(Token::Whitespace)
+        } else {
+            None
+        }
     }
-    fn quick_check(&self, c: Option<char>) -> Option<bool> { c.map(|ch| ch.is_whitespace()) }
+    fn quick_check(&self, c: Option<char>) -> Option<bool> {
+        c.map(|ch| ch.is_whitespace())
+    }
 }
 
 struct NumberRule;
 impl LexingRule<LexDefaultContext, Token> for NumberRule {
     fn try_match(&mut self, ctx: &mut LexDefaultContext) -> Option<Token> {
         let s = ctx.consume_while(|c| c.is_ascii_digit());
-        if !s.is_empty() { 
+        if !s.is_empty() {
             let n = s.parse().unwrap_or(0);
-            Some(Token::Number(n)) 
-        } else { None }
+            Some(Token::Number(n))
+        } else {
+            None
+        }
     }
-    fn quick_check(&self, c: Option<char>) -> Option<bool> { c.map(|ch| ch.is_ascii_digit()) }
+    fn quick_check(&self, c: Option<char>) -> Option<bool> {
+        c.map(|ch| ch.is_ascii_digit())
+    }
 }
 
 struct OpRule;
@@ -74,7 +99,7 @@ impl LexingRule<LexDefaultContext, Token> for OpRule {
         ctx.advance();
         Some(tok)
     }
-    fn quick_check(&self, c: Option<char>) -> Option<bool> { 
+    fn quick_check(&self, c: Option<char>) -> Option<bool> {
         c.map(|ch| "+-*/()".contains(ch))
     }
 }
@@ -95,8 +120,15 @@ impl PrattConfig<ParseContext<Token>, Token, Ast> for ExprConfig {
             _ => None,
         }
     }
-    fn parse_prefix<F>(&self, token: Token, ctx: &mut ParseContext<Token>, parser: &F) -> Option<Ast>
-    where F: Fn(&mut ParseContext<Token>, u8) -> Option<Ast> {
+    fn parse_prefix<F>(
+        &self,
+        token: Token,
+        ctx: &mut ParseContext<Token>,
+        parser: &F,
+    ) -> Option<Ast>
+    where
+        F: Fn(&mut ParseContext<Token>, u8) -> Option<Ast>,
+    {
         match token {
             Token::Number(n) => Some(Ast::Number(n)),
             Token::LParen => {
@@ -104,22 +136,39 @@ impl PrattConfig<ParseContext<Token>, Token, Ast> for ExprConfig {
                 if matches!(ctx.peek(), Some(Token::RParen)) {
                     ctx.advance();
                     Some(expr)
-                } else { None }
+                } else {
+                    None
+                }
             }
             _ => None,
         }
     }
-    fn parse_infix<F>(&self, left: Ast, token: Token, r_bp: u8, ctx: &mut ParseContext<Token>, parser: &F) -> Option<Ast>
-    where F: Fn(&mut ParseContext<Token>, u8) -> Option<Ast> {
+    fn parse_infix<F>(
+        &self,
+        left: Ast,
+        token: Token,
+        r_bp: u8,
+        ctx: &mut ParseContext<Token>,
+        parser: &F,
+    ) -> Option<Ast>
+    where
+        F: Fn(&mut ParseContext<Token>, u8) -> Option<Ast>,
+    {
         let op = match token {
-            Token::Plus => '+', Token::Minus => '-', Token::Star => '*', Token::Slash => '/', _ => return None,
+            Token::Plus => '+',
+            Token::Minus => '-',
+            Token::Star => '*',
+            Token::Slash => '/',
+            _ => return None,
         };
         let right = parser(ctx, r_bp)?;
         Some(Ast::Binary(Box::new(left), op, Box::new(right)))
     }
 }
 
-struct ExprRule { config: ExprConfig }
+struct ExprRule {
+    config: ExprConfig,
+}
 impl ParsingRule<ParseContext<Token>, Token, Ast> for ExprRule {
     fn try_parse(&mut self, ctx: &mut ParseContext<Token>) -> Option<Ast> {
         parse_pratt(ctx, &self.config, 0)
@@ -139,11 +188,11 @@ fn generate_input(lines: usize) -> String {
 // --- Bench ---
 fn bench_pipeline(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_batch");
-    
+
     // 1000 lines of expressions (~25KB input)
     let lines = 1000;
     let input = generate_input(lines);
-    
+
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("parse_expr_1k_lines", |b| {
         b.iter(|| {
@@ -152,23 +201,22 @@ fn bench_pipeline(c: &mut Criterion) {
                 Box::new(NumberRule),
                 Box::new(OpRule),
             ];
-            
+
             // BatchPipeline::run expects a Parser Builder or Rules
             // But wait, BatchPipeline::run in lib.rs uses Lexer::from_str and Parser::from_tokens internal logic?
             // Let's check signature.
             // It takes `lexer_rules` and `parser_rules`.
-            
-            let parser_rules: Vec<Box<dyn ParsingRule<ParseContext<Token>, Token, Ast>>> = vec![
-                Box::new(ExprRule { config: ExprConfig }),
-            ];
+
+            let parser_rules: Vec<Box<dyn ParsingRule<ParseContext<Token>, Token, Ast>>> =
+                vec![Box::new(ExprRule { config: ExprConfig })];
 
             // Use the convenience method
-            // Note: Whitespace filtering is usually needed. 
+            // Note: Whitespace filtering is usually needed.
             // Our Parser rules don't handle Whitespace tokens explicitly (Pratt parser doesn't skip them automatically unless configured).
             // We need a way to filter whitespace.
             // BatchPipeline doesn't have built-in filtering.
             // So we must use `run_custom` or modify Lexer rules to SKIP whitespace (return None).
-            
+
             // In our Lexer rule above: WhitespaceRule returns Some(Token::Whitespace).
             // If we want to skip, it should return None (but consume text).
             // But Lexer expects Some(token). If try_match returns None, Lexer thinks rule didn't match.
@@ -177,23 +225,23 @@ fn bench_pipeline(c: &mut Criterion) {
             // So Lexer MUST produce a token or error.
             // So we must produce Token::Whitespace.
             // Then we need to filter it before Parser.
-            
+
             // Use run_custom for filtering
             let lexer = Lexer::from_str(input.as_str(), lexer_rules);
-            
+
             BatchPipeline::run_custom(lexer, |tokens| {
                 // Filter whitespace here
-                let filtered: Vec<Token> = tokens.into_iter()
+                let filtered: Vec<Token> = tokens
+                    .into_iter()
                     .filter(|t| !matches!(t, Token::Whitespace))
                     .collect();
                 Parser::<ParseContext<Token>, Token, Ast>::from_tokens(filtered, parser_rules)
             });
         })
     });
-    
+
     group.finish();
 }
 
 criterion_group!(benches, bench_pipeline);
 criterion_main!(benches);
-
