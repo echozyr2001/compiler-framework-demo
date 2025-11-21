@@ -30,6 +30,10 @@ where
 
     /// Restores the parser to a checkpoint.
     fn restore(&mut self, checkpoint: Checkpoint);
+
+    /// Commits the current position, signaling that tokens before this point
+    /// will never be revisited. Default implementation is a no-op.
+    fn commit(&mut self) {}
 }
 
 /// A simple default context implementation that works with a token iterator.

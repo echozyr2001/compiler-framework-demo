@@ -22,6 +22,8 @@ where
     position: Position,
     /// Maximum size of the history window before pruning
     window_size: usize,
+    /// Tokens with index < committed_index will never be revisited.
+    committed_index: usize,
 }
 
 impl<I, Tok> LazyContext<I, Tok>
@@ -37,6 +39,7 @@ where
             cursor_offset: 0,
             position: Position::default(),
             window_size,
+            committed_index: 0,
         }
     }
 
@@ -55,9 +58,17 @@ where
 
     /// Prunes the buffer if the cursor has advanced far enough.
     fn maybe_prune(&mut self) {
-        // Keep at least half the window size as history
-        let keep_history = self.window_size / 2;
+        // First drop everything below committed_index
+        while self.base_index < self.committed_index {
+            self.buffer.pop_front();
+            self.base_index += 1;
+            if self.cursor_offset > 0 {
+                self.cursor_offset -= 1;
+            }
+        }
 
+        // Keep at least half the window size as history relative to cursor
+        let keep_history = self.window_size / 2;
         if self.cursor_offset > keep_history {
             let prune_count = self.cursor_offset - keep_history;
             for _ in 0..prune_count {
@@ -150,5 +161,13 @@ where
         }
         self.cursor_offset = new_offset;
         self.position = checkpoint.position();
+    }
+
+    fn commit(&mut self) {
+        let current_index = self.token_index();
+        if current_index > self.committed_index {
+            self.committed_index = current_index;
+        }
+        self.maybe_prune();
     }
 }

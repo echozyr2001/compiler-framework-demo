@@ -5,6 +5,7 @@ use parser_framework::{
     PrattConfig,
 };
 use pipeline_core::BatchPipeline;
+use std::sync::Arc;
 // use common_framework::TextSlice; // Unused
 
 // --- Shared Types ---
@@ -189,101 +190,59 @@ fn generate_input(lines: usize) -> String {
 // --- Bench ---
 fn bench_pipeline(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_batch");
-
-    // 1000 lines of expressions (~25KB input)
-    let lines = 1000;
-    let input = generate_input(lines);
-
-    group.throughput(Throughput::Bytes(input.len() as u64));
-    group.bench_function("parse_expr_1k_lines", |b| {
-        b.iter(|| {
-            let lexer_rules: Vec<Box<dyn LexingRule<LexDefaultContext, Token>>> = vec![
-                Box::new(WhitespaceRule),
-                Box::new(NumberRule),
-                Box::new(OpRule),
-            ];
-
-            // BatchPipeline::run expects a Parser Builder or Rules
-            // But wait, BatchPipeline::run in lib.rs uses Lexer::from_str and Parser::from_tokens internal logic?
-            // Let's check signature.
-            // It takes `lexer_rules` and `parser_rules`.
-
-            let parser_rules: Vec<Box<dyn ParsingRule<DefaultContext<Token>, Token, Ast>>> =
-                vec![Box::new(ExprRule { config: ExprConfig })];
-
-            // Use the convenience method
-            // Note: Whitespace filtering is usually needed.
-            // Our Parser rules don't handle Whitespace tokens explicitly (Pratt parser doesn't skip them automatically unless configured).
-            // We need a way to filter whitespace.
-            // BatchPipeline doesn't have built-in filtering.
-            // So we must use `run_custom` or modify Lexer rules to SKIP whitespace (return None).
-
-            // In our Lexer rule above: WhitespaceRule returns Some(Token::Whitespace).
-            // If we want to skip, it should return None (but consume text).
-            // But Lexer expects Some(token). If try_match returns None, Lexer thinks rule didn't match.
-            // Wait, Lexer logic: if try_match returns None, it restores checkpoint and tries next rule.
-            // If NO rule matches, it's an error.
-            // So Lexer MUST produce a token or error.
-            // So we must produce Token::Whitespace.
-            // Then we need to filter it before Parser.
-
-            // Use run_custom for filtering
-            let lexer = Lexer::from_str(input.as_str(), lexer_rules);
-
-            BatchPipeline::run_custom(lexer, |tokens| {
-                // Filter whitespace here
-                let filtered: Vec<Token> = tokens
-                    .into_iter()
-                    .filter(|t| !matches!(t, Token::Whitespace))
-                    .collect();
-                Parser::<DefaultContext<Token>, Token, Ast>::from_tokens(filtered, parser_rules)
-            });
-        })
-    });
-
+    for &lines in &[1_000usize, 10_000, 50_000] {
+        let input = Arc::new(generate_input(lines));
+        let len = input.len();
+        group.throughput(Throughput::Bytes(len as u64));
+        let bench_name = format!("parse_expr_{}k_lines", lines / 1000);
+        group.bench_function(bench_name, |b| {
+            let input = input.clone();
+            b.iter(move || {
+                let lexer_rules: Vec<Box<dyn LexingRule<LexDefaultContext, Token>>> = vec![
+                    Box::new(WhitespaceRule),
+                    Box::new(NumberRule),
+                    Box::new(OpRule),
+                ];
+                let parser_rules: Vec<Box<dyn ParsingRule<DefaultContext<Token>, Token, Ast>>> =
+                    vec![Box::new(ExprRule { config: ExprConfig })];
+                let lexer = Lexer::from_str(input.as_ref(), lexer_rules);
+                BatchPipeline::run_custom(lexer, |tokens| {
+                    let filtered: Vec<Token> = tokens
+                        .into_iter()
+                        .filter(|t| !matches!(t, Token::Whitespace))
+                        .collect();
+                    Parser::<DefaultContext<Token>, Token, Ast>::from_tokens(filtered, parser_rules)
+                })
+            })
+        });
+    }
     group.finish();
 }
 
 fn bench_lazy_pipeline(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_lazy");
-
-    let lines = 1000;
-    let input = generate_input(lines);
-
-    group.throughput(Throughput::Bytes(input.len() as u64));
-    group.bench_function("parse_expr_1k_lines_lazy", |b| {
-        b.iter(|| {
-            let lexer_rules: Vec<Box<dyn LexingRule<LexDefaultContext, Token>>> = vec![
-                Box::new(WhitespaceRule),
-                Box::new(NumberRule),
-                Box::new(OpRule),
-            ];
-
-            // Need explicit type annotation for the rules because LazyContext is complex
-            // LazyContext type: LazyContext<Filter<...>, Token>
-            // The iterator type is opaque (Filter), making it hard to name the type explicitly.
-            // But ParsingRule is a trait object, so we can use `Box<dyn ...>`.
-            // However, `dyn ParsingRule` needs a concrete Context type parameter.
-
-            // Strategy: Use type inference where possible.
-            let lexer = Lexer::from_str(input.as_str(), lexer_rules);
-            let filtered_iter = lexer.filter(|t| !matches!(t, Token::Whitespace));
-
-            // Create context
-            // Window size 16 is plenty for this grammar (LL(1) basically)
-            let context = LazyContext::new(filtered_iter, 16);
-
-            // Construct parser rules for THIS context type
-            // This is the tricky part: we need to construct the Vec<Box<dyn ParsingRule...>>
-            // knowing the exact type of context.
-            let rule = ExprRule { config: ExprConfig };
-            let rules = vec![Box::new(rule) as Box<dyn ParsingRule<_, _, _>>];
-
-            let mut parser = Parser::new(context, rules);
-            parser.parse()
-        })
-    });
-
+    for &lines in &[1_000usize, 10_000, 50_000] {
+        let input = Arc::new(generate_input(lines));
+        let len = input.len();
+        group.throughput(Throughput::Bytes(len as u64));
+        let bench_name = format!("parse_expr_{}k_lines_lazy", lines / 1000);
+        group.bench_function(bench_name, |b| {
+            let input = input.clone();
+            b.iter(move || {
+                let lexer_rules: Vec<Box<dyn LexingRule<LexDefaultContext, Token>>> = vec![
+                    Box::new(WhitespaceRule),
+                    Box::new(NumberRule),
+                    Box::new(OpRule),
+                ];
+                let lexer = Lexer::from_str(input.as_ref(), lexer_rules);
+                let filtered_iter = lexer.filter(|t| !matches!(t, Token::Whitespace));
+                let context = LazyContext::new(filtered_iter, 16);
+                let parser_rules = vec![Box::new(ExprRule { config: ExprConfig }) as Box<_>];
+                let mut parser = Parser::new(context, parser_rules);
+                parser.parse()
+            })
+        });
+    }
     group.finish();
 }
 
