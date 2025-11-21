@@ -1,3 +1,11 @@
+//! Streaming protocol primitives shared by lexer/parser pipelines.
+//!
+//! The goal of this module is to offer an implementation-agnostic message protocol so
+//! lexers, parsers, and controllers can be composed into real-time or incremental pipelines.
+//! [`StreamingSignal`] enumerates the common control commands (request tokens, abort, etc.)
+//! and status updates (produced ASTs, finished, blocked). [`Inbound`] and [`Outbound`]
+//! provide the “receive”/“emit” roles for any component that wants to plug into the stream.
+
 /// Protocol-level signals that flow through the streaming pipeline.
 ///
 /// This enum is inspired by message-based P2P protocols: every controller command

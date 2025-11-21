@@ -4,8 +4,18 @@ use std::sync::Arc;
 /// Immutable slice referencing a shared text buffer.
 ///
 /// The slice keeps an `Arc<str>` alive so that it can be freely cloned and
-/// moved around without worrying about lifetimes. It implements `Deref<Target =
-/// str>` which allows it to be used transparently as `&str` in most places.
+/// moved around without worrying about lifetimes. It implements [`Deref`]
+/// and [`Display`], so it behaves like `&str` in most contexts.
+///
+/// # Examples
+/// ```
+/// use common_framework::TextSlice;
+/// use std::sync::Arc;
+///
+/// let buffer: Arc<str> = Arc::from("let answer = 42;");
+/// let ident = TextSlice::new(buffer.clone(), 4, 10);
+/// assert_eq!(&*ident, "answer");
+/// ```
 #[derive(Clone, Debug)]
 pub struct TextSlice {
     buffer: Arc<str>,

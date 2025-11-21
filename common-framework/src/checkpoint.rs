@@ -1,7 +1,10 @@
 use crate::Position;
 
 /// A checkpoint for saving and restoring parsing/lexing state.
-/// This is used by both lexer and parser frameworks to support backtracking.
+///
+/// Lexers typically treat `index` as a byte offset, while parsers use it as a token index.
+/// Together with `checkpoint()` / `restore()` and the higher-level `commit()` hooks,
+/// contexts can safely backtrack and later discard obsolete history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Checkpoint {
     /// The index (byte offset for lexer, token index for parser) at this checkpoint.
