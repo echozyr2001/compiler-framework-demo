@@ -1,0 +1,11 @@
+[package]
+name = "markdown-renderer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+lexer-framework = { path = "../../lexer-framework" }
+parser-framework = { path = "../../parser-framework" }
+common-framework = { path = "../../common-framework" }
+pipeline-core = { path = "../../pipeline-core" }
+

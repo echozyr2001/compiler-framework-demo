@@ -5,6 +5,7 @@ members = [
     "common-framework",
     "pipeline-core",
     "examples/pipeline-demo",
+    "examples/markdown-renderer",
 ]
 resolver = "2"
 

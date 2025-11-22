@@ -14,6 +14,32 @@ pub trait AstNode: Clone + std::fmt::Debug {
     }
 }
 
+/// A trait for AST nodes that can carry arbitrary state information.
+/// This allows nodes to be annotated with user-defined state (e.g., Incomplete/Complete
+/// for editor scenarios, error recovery state for compilers, etc.) without the framework
+/// needing to know the specific state type.
+///
+/// This is an optional extension - not all AST nodes need to be stateful.
+pub trait StatefulNode: AstNode {
+    /// The type of state this node carries.
+    type State: Clone + std::fmt::Debug;
+
+    /// Returns the current state of this node.
+    fn state(&self) -> &Self::State;
+
+    /// Sets the state of this node.
+    fn set_state(&mut self, state: Self::State);
+
+    /// Attempts to transition state based on a trigger.
+    /// Returns true if the state was changed, false otherwise.
+    ///
+    /// Default implementation does nothing and returns false.
+    /// Implementations can override this to implement state machine logic.
+    fn transition(&mut self, _trigger: &dyn std::any::Any) -> bool {
+        false
+    }
+}
+
 /// A parsing rule that operates on a context.
 /// This is the core of CGP design - rules are generic over context,
 /// allowing them to work with different parser implementations.

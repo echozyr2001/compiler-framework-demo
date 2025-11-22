@@ -13,4 +13,4 @@ pub use parser::Parser;
 pub use pratt::{parse_pratt, PrattConfig};
 #[cfg(feature = "streaming")]
 pub use streaming::{StreamingParseContext, TokenConsumer};
-pub use traits::{AstNode, ParsingRule};
+pub use traits::{AstNode, ParsingRule, StatefulNode};

@@ -106,3 +106,55 @@ src/
     └── rules.rs        # 内置规则实现
 ```
 
+## 应用示例
+
+框架设计为通用解析框架，可以用于构建多种类型的工具。我们提供了示例来展示框架的应用：
+
+### Markdown 渲染引擎示例
+
+位置：`examples/markdown-renderer/`
+
+这个示例展示了如何用框架构建所见即所得的 Markdown 编辑器后端。它展示了编译原理思想在非传统编译场景中的应用：
+
+1. **词法分析**：将 Markdown 文本转换为 Token 流
+2. **语法分析**：将 Token 流解析为 AST 节点
+3. **状态管理**：利用 `StatefulNode` trait 为 AST 节点添加状态信息（Incomplete/Complete）
+4. **渲染决策**：根据节点状态决定如何显示内容
+
+#### 关键特性
+
+- **通用性**：框架不包含任何 Markdown 特定的逻辑，`StatefulNode` trait 允许为 AST 节点添加任意状态类型
+- **编译原理应用**：展示了如何将词法分析→语法分析→AST 的经典流程应用于实时文本渲染场景
+- **状态管理**：展示了如何用 trait 实现灵活的状态管理机制
+
+详细的实现说明和使用方法请参考 `examples/markdown-renderer/README.md`。
+
+### 运行示例
+
+```bash
+# 运行 Markdown 渲染引擎示例
+cargo run --example interactive_editor --manifest-path examples/markdown-renderer/Cargo.toml
+```
+
+## 框架通用能力
+
+### StatefulNode Trait
+
+框架提供了 `StatefulNode` trait（在 `parser-framework` 中），允许 AST 节点携带任意用户定义的状态信息。这对于多种场景都很有用：
+
+- **编辑器场景**：标记内容是否完整（Incomplete/Complete）
+- **编译器场景**：错误恢复状态、部分解析状态
+- **IDE/LSP**：语法高亮状态、诊断状态等
+
+```rust
+pub trait StatefulNode: AstNode {
+    type State: Clone + std::fmt::Debug;
+    
+    fn state(&self) -> &Self::State;
+    fn set_state(&mut self, state: Self::State);
+    fn transition(&mut self, trigger: &dyn Any) -> bool { false }
+}
+```
+
+这个设计保持了框架的通用性：框架不关心具体的状态类型，完全由用户定义。
+
