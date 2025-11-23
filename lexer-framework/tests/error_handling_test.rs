@@ -1,4 +1,4 @@
-//! 错误处理和边界情况测试
+//! Error handling and boundary scenario tests.
 
 use lexer_framework::{DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 

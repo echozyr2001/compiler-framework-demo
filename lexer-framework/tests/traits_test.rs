@@ -1,4 +1,4 @@
-//! Traits 测试：测试 LexToken 和 LexingRule trait 的行为
+//! Trait tests covering LexToken and LexingRule behavior.
 
 use lexer_framework::{DefaultContext, LexContext, LexToken, LexingRule, Position};
 

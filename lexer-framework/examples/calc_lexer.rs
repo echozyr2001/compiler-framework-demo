@@ -1,9 +1,9 @@
-//! 计算器词法分析器示例
-//! 展示如何使用 lexer-framework 定义计算器风格的 Token 和规则
+//! Calculator lexer example.
+//! Demonstrates how to define calculator-style tokens and rules with lexer-framework.
 
 use lexer_framework::{DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 
-/// 计算器 Token 类型（更简单的设计）
+/// Token definition used by the calculator example (kept intentionally small).
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcToken {
     Number { value: f64, position: Position },
@@ -51,7 +51,7 @@ impl LexToken for CalcToken {
     }
 }
 
-/// 匹配数字（浮点数）
+/// Matches floating-point numbers.
 pub struct NumberRule;
 
 impl<Ctx> LexingRule<Ctx, CalcToken> for NumberRule
@@ -69,7 +69,7 @@ where
         let mut value_str = String::new();
         let mut has_digit = false;
 
-        // 处理整数部分
+        // Parse the integer part.
         if first.is_ascii_digit() {
             value_str.push(first);
             has_digit = true;
@@ -78,7 +78,7 @@ where
             value_str.push_str(int_part.as_ref());
         }
 
-        // 处理小数部分
+        // Parse the fractional part.
         if ctx.peek() == Some('.') {
             value_str.push('.');
             ctx.advance();
@@ -89,12 +89,12 @@ where
             value_str.push_str(decimal.as_ref());
         }
 
-        // 必须有至少一个数字
+        // Require at least one digit overall.
         if !has_digit {
             return None;
         }
 
-        // 尝试解析为浮点数
+        // Attempt to parse the collected literal as f64.
         if let Ok(value) = value_str.parse::<f64>() {
             Some(CalcToken::Number { value, position })
         } else {
@@ -107,28 +107,27 @@ where
     }
 }
 
-/// 匹配操作符
+/// Matches operators.
 ///
-/// 这里展示了两种实现方式：
-/// 1. 使用 match 语句：适合固定、少量的操作符（性能更好，编译期优化）
-/// 2. 使用 Vec 映射：适合运行时可配置的操作符（更灵活，但需要查找）
+/// Two approaches are highlighted:
+/// 1. `match` statements — ideal for a small fixed operator set (fast, compile-time optimization).
+/// 2. Lookup tables — handy when operators are user-configurable at runtime (more flexible, slightly slower).
 ///
-/// 当前实现使用 match，因为计算器的操作符是固定的。
-/// 如果需要动态配置操作符，可以参考 json_lexer.rs 中的 PunctuationRule 实现。
+/// This example sticks with `match` because calculator operators are fixed.
+/// For a dynamic configuration, see `json_lexer.rs` and its `PunctuationRule`.
 pub struct OperatorRule;
 
 impl<Ctx> LexingRule<Ctx, CalcToken> for OperatorRule
 where
     Ctx: LexContext,
 {
-    /// 快速检查：只有操作符字符才可能匹配
+    /// Quick check: only operator characters should reach `try_match`.
     ///
-    /// 这是一个性能优化：当输入是字母、数字、空格等时，
-    /// 直接跳过这个规则，避免不必要的 checkpoint 创建和 try_match 调用。
+    /// Optimization: skip this rule for letters/digits/whitespace to avoid unnecessary checkpoints.
     fn quick_check(&self, first_char: Option<char>) -> Option<bool> {
         match first_char? {
-            '+' | '-' | '*' | '/' | '^' | '(' | ')' => Some(true), // 可能是操作符
-            _ => Some(false), // 字母、数字、空格等肯定不是操作符
+            '+' | '-' | '*' | '/' | '^' | '(' | ')' => Some(true), // could be an operator
+            _ => Some(false), // letters/digits/whitespace are never operators
         }
     }
 
@@ -137,9 +136,9 @@ where
         let ch = ctx.peek()?;
         let position = ctx.position();
 
-        // 方式1：使用 match（当前实现）
-        // 优点：编译期优化，性能好，代码简洁
-        // 缺点：操作符列表固定，编译期确定
+        // Approach 1: `match` (current implementation)
+        // Pros: compile-time optimization, good performance, concise code.
+        // Cons: operator set fixed at compile time.
         let token = match ch {
             '+' => Some(Plus { position }),
             '-' => Some(Minus { position }),
@@ -154,14 +153,13 @@ where
         ctx.advance();
         token
 
-        // 方式2：使用 Vec 映射（可选的实现方式）
-        // 如果要使用这种方式，可以将 OperatorRule 改为：
+        // Approach 2: vector-based mapping (optional)
         // pub struct OperatorRule {
         //     mappings: Vec<(char, fn(Position) -> CalcToken)>,
         // }
-        // 然后在 try_match 中遍历 mappings 查找匹配的字符
-        // 优点：可以在运行时配置操作符，更灵活
-        // 缺点：需要动态查找，性能略差
+        // Iterate `mappings` in `try_match`.
+        // Pros: runtime-configurable operator set.
+        // Cons: requires a lookup per match, slightly slower.
     }
 
     fn priority(&self) -> i32 {
@@ -169,7 +167,7 @@ where
     }
 }
 
-/// 匹配空白字符
+/// Matches whitespace.
 pub struct WhitespaceRule;
 
 impl<Ctx> LexingRule<Ctx, CalcToken> for WhitespaceRule
@@ -191,7 +189,7 @@ where
     }
 }
 
-/// 匹配 EOF
+/// Matches EOF.
 pub struct EofRule;
 
 impl<Ctx> LexingRule<Ctx, CalcToken> for EofRule

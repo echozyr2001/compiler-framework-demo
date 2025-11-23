@@ -1,4 +1,4 @@
-//! 边界情况和特殊场景测试
+//! Edge cases and unusual scenarios for the lexer framework.
 
 use lexer_framework::{Cursor, DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 

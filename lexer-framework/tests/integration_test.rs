@@ -1,4 +1,4 @@
-//! 集成测试：测试框架的完整使用场景
+//! Integration tests that exercise the framework end-to-end.
 
 use lexer_framework::{DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 

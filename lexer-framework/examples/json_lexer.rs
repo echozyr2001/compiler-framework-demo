@@ -1,9 +1,9 @@
-//! JSON 词法分析器示例
-//! 展示如何使用 lexer-framework 定义 JSON 风格的 Token 和规则
+//! JSON lexer example.
+//! Demonstrates how to define JSON-style tokens and rules with lexer-framework.
 
 use lexer_framework::{DefaultContext, LexContext, LexToken, Lexer, LexingRule, Position};
 
-/// JSON Token 类型
+/// JSON token definitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JsonToken {
     String { value: String, position: Position },
@@ -55,7 +55,7 @@ impl LexToken for JsonToken {
     }
 }
 
-/// 匹配 JSON 字符串（支持转义字符）
+/// Matches JSON strings, including escaped characters.
 pub struct StringRule;
 
 impl<Ctx> LexingRule<Ctx, JsonToken> for StringRule
@@ -114,7 +114,7 @@ where
     }
 }
 
-/// 匹配数字
+/// Matches JSON numbers.
 pub struct NumberRule;
 
 impl<Ctx> LexingRule<Ctx, JsonToken> for NumberRule
@@ -199,7 +199,7 @@ where
     }
 }
 
-/// 匹配布尔值和 null
+/// Matches boolean literals and `null`.
 pub struct KeywordRule;
 
 impl<Ctx> LexingRule<Ctx, JsonToken> for KeywordRule
@@ -241,7 +241,7 @@ where
     }
 }
 
-/// 匹配标点符号
+/// Matches punctuation symbols.
 pub struct PunctuationRule;
 
 impl<Ctx> LexingRule<Ctx, JsonToken> for PunctuationRule
@@ -272,7 +272,7 @@ where
     }
 }
 
-/// 匹配空白字符
+/// Matches whitespace.
 pub struct WhitespaceRule;
 
 impl<Ctx> LexingRule<Ctx, JsonToken> for WhitespaceRule
@@ -298,7 +298,7 @@ where
     }
 }
 
-/// 匹配 EOF
+/// Matches EOF.
 pub struct EofRule;
 
 impl<Ctx> LexingRule<Ctx, JsonToken> for EofRule
