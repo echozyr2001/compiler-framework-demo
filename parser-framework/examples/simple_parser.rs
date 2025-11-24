@@ -1,12 +1,12 @@
-//! 简单的解析器示例
+//! Minimal parser example.
 //!
-//! 本示例展示了如何使用 parser-framework 的基本功能：
-//! 1. 定义 Token 类型
-//! 2. 定义 AST 节点类型
-//! 3. 实现解析规则
-//! 4. 使用 Parser 解析 token 流
+//! Demonstrates the parser-framework workflow:
+//! 1. Define tokens.
+//! 2. Define AST nodes.
+//! 3. Implement parsing rules.
+//! 4. Run the parser over a token stream.
 //!
-//! 这个示例解析简单的算术表达式，只支持两个数字和一个运算符。
+//! The example parses simple arithmetic expressions with two numbers and one operator.
 
 use parser_framework::{AstNode, DefaultContext, ParseContext, Parser, ParsingRule, Position};
 
@@ -14,7 +14,7 @@ type SimpleParserRules =
     Vec<Box<dyn ParsingRule<DefaultContext<SimpleToken>, SimpleToken, SimpleExpr>>>;
 
 // ============================================================================
-// Token 定义（简化版，直接从 token 流开始）
+// Token definition (simplified: we start from a ready-made token stream)
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,15 +26,15 @@ pub enum SimpleToken {
 }
 
 // ============================================================================
-// AST 节点定义
+// AST definition
 // ============================================================================
 
-/// 简单的表达式 AST 节点
+/// Simple expression nodes.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SimpleExpr {
-    /// 数字字面量
+    /// Numeric literal.
     Number { value: i32, position: Position },
-    /// 二元运算：左操作数 运算符 右操作数
+    /// Binary operation (lhs, operator, rhs).
     Binary {
         op: Op,
         left: Box<SimpleExpr>,
@@ -59,10 +59,10 @@ impl AstNode for SimpleExpr {
 }
 
 // ============================================================================
-// Parser 规则
+// Parser rules
 // ============================================================================
 
-/// 解析数字字面量
+/// Parses numeric literals.
 struct NumberRule;
 
 impl<Ctx> ParsingRule<Ctx, SimpleToken, SimpleExpr> for NumberRule
@@ -80,7 +80,7 @@ where
     }
 
     fn priority(&self) -> i32 {
-        10 // 高优先级，数字是最基本的表达式
+        10 // Higher priority: numbers are the base case.
     }
 
     fn quick_check(&self, current_token: Option<&SimpleToken>) -> Option<bool> {
@@ -88,7 +88,7 @@ where
     }
 }
 
-/// 解析二元运算表达式：数字 运算符 数字
+/// Parses binary expressions of the shape `number op number`.
 struct BinaryRule {
     op_token: SimpleToken,
     op: Op,
@@ -105,7 +105,7 @@ where
     Ctx: ParseContext<SimpleToken>,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<SimpleExpr> {
-        // 解析左操作数（必须是数字）
+        // Parse the left operand (must be a number).
         let left_token = ctx.peek()?.clone();
         let left = if let SimpleToken::Number { value, position } = left_token {
             ctx.advance();
@@ -114,14 +114,14 @@ where
             return None;
         };
 
-        // 检查并消费运算符
+        // Inspect and consume the operator.
         let op_token = ctx.peek()?.clone();
         let op_position = match &op_token {
             SimpleToken::Plus { position } | SimpleToken::Minus { position } => *position,
             _ => return None,
         };
 
-        // 检查运算符是否匹配
+        // Ensure the operator matches the rule we were configured with.
         let matches_op = matches!(
             (&self.op_token, &op_token),
             (SimpleToken::Plus { .. }, SimpleToken::Plus { .. })
@@ -132,9 +132,9 @@ where
             return None;
         }
 
-        ctx.advance(); // 消费运算符
+        ctx.advance(); // consume the operator
 
-        // 解析右操作数（必须是数字）
+        // Parse the right operand (must be a number).
         let right_token = ctx.peek()?.clone();
         let right = if let SimpleToken::Number { value, position } = right_token {
             ctx.advance();
@@ -152,25 +152,25 @@ where
     }
 
     fn priority(&self) -> i32 {
-        15 // 较高优先级，二元运算应该先尝试（因为它需要匹配完整的表达式）
+        15 // Higher priority: needs to match the entire expression.
     }
 
     fn quick_check(&self, current_token: Option<&SimpleToken>) -> Option<bool> {
-        // 二元运算需要检查第一个 token 是否为数字
+        // Binary expressions require the first token to be a number.
         Some(matches!(current_token?, SimpleToken::Number { .. }))
     }
 }
 
 // ============================================================================
-// 主程序
+// Example program
 // ============================================================================
 
 fn main() {
-    println!("=== 简单解析器示例 ===\n");
-    println!("本示例展示如何使用 parser-framework 解析简单的算术表达式\n");
+    println!("=== Simple Parser Example ===\n");
+    println!("Demonstrates how parser-framework parses basic arithmetic expressions.\n");
 
-    // 示例 1: 解析单个数字
-    println!("【示例 1】解析单个数字:");
+    // Example 1: single number
+    println!("[Example 1] Parsing a single number:");
     println!("{}", "=".repeat(50));
 
     let tokens1 = vec![SimpleToken::Number {
@@ -184,17 +184,17 @@ fn main() {
     let mut parser1 = Parser::new(context1, rules1);
 
     if let Some(ast) = parser1.parse_one() {
-        println!("输入: 42");
+        println!("Input: 42");
         println!("AST: {:?}", ast);
-        println!("成功解析为: {:?}", ast);
+        println!("Successfully parsed: {:?}", ast);
     } else {
-        println!("解析失败");
+        println!("Parse failed");
     }
 
     println!("\n");
 
-    // 示例 2: 解析加法表达式
-    println!("【示例 2】解析加法表达式:");
+    // Example 2: addition
+    println!("[Example 2] Parsing addition:");
     println!("{}", "=".repeat(50));
 
     let tokens2 = vec![
@@ -230,21 +230,21 @@ fn main() {
             },
             Op::Add,
         )),
-        Box::new(NumberRule), // NumberRule 作为后备，用于解析单个数字
+        Box::new(NumberRule), // fallback to parse standalone numbers
     ];
 
     let context2 = DefaultContext::from_token_iter(tokens2);
     let mut parser2 = Parser::new(context2, rules2);
 
     if let Some(ast) = parser2.parse_one() {
-        println!("输入: 3 + 4");
+        println!("Input: 3 + 4");
         println!("AST: {:#?}", ast);
         match ast {
             SimpleExpr::Binary {
                 op, left, right, ..
             } => {
                 println!(
-                    "成功解析为: {:?} {} {:?}",
+                    "Result: {:?} {} {:?}",
                     left,
                     match op {
                         Op::Add => "+",
@@ -253,16 +253,16 @@ fn main() {
                     right
                 );
             }
-            _ => println!("解析结果: {:?}", ast),
+            _ => println!("Parsed AST: {:?}", ast),
         }
     } else {
-        println!("解析失败");
+        println!("Parse failed");
     }
 
     println!("\n");
 
-    // 示例 3: 解析减法表达式
-    println!("【示例 3】解析减法表达式:");
+    // Example 3: subtraction
+    println!("[Example 3] Parsing subtraction:");
     println!("{}", "=".repeat(50));
 
     let tokens3 = vec![
@@ -305,14 +305,14 @@ fn main() {
     let mut parser3 = Parser::new(context3, rules3);
 
     if let Some(ast) = parser3.parse_one() {
-        println!("输入: 10 - 3");
+        println!("Input: 10 - 3");
         println!("AST: {:#?}", ast);
         match ast {
             SimpleExpr::Binary {
                 op, left, right, ..
             } => {
                 println!(
-                    "成功解析为: {:?} {} {:?}",
+                    "Result: {:?} {} {:?}",
                     left,
                     match op {
                         Op::Add => "+",
@@ -321,9 +321,9 @@ fn main() {
                     right
                 );
             }
-            _ => println!("解析结果: {:?}", ast),
+            _ => println!("Parsed AST: {:?}", ast),
         }
     } else {
-        println!("解析失败");
+        println!("Parse failed");
     }
 }

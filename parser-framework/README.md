@@ -1,25 +1,24 @@
 # Parser Framework
 
-基于 CGP (Context-Generic Programming) 设计模式的解析器框架。
+A parser implementation that follows the CGP (Context-Generic Programming) design pattern.
 
-## 设计理念
+## Design Philosophy
 
-Parser Framework 遵循 CGP 设计模式，核心思想是：
+The framework follows three pillars:
 
-1. **Context（上下文）**: `ParseContext` trait 定义了解析操作的抽象接口
-2. **Rule（规则）**: `ParsingRule` trait 定义了如何从上下文中解析 AST 节点
-3. **Parser（解析器）**: `Parser` 结构体协调规则的应用，按优先级尝试匹配
+1. **Context** – `ParseContext` defines the abstract interface for reading tokens.
+2. **Rule** – `ParsingRule` describes how to turn the current context into an AST node.
+3. **Parser** – `Parser` orchestrates rules, honoring priorities and `quick_check`.
 
-这种设计使得：
-- 规则与具体的解析器实现解耦
-- 可以轻松替换不同的上下文实现
-- 支持优先级和快速检查优化
+This separation:
+- decouples parsing rules from concrete parser implementations,
+- allows swapping contexts (e.g., batch vs. streaming),
+- enables rule prioritization and inexpensive `quick_check` pruning.
 
-## 核心组件
+## Core Components
 
 ### ParseContext
-
-解析上下文 trait，提供对 token 流的访问：
+Access to the token stream lives behind a trait:
 
 ```rust
 pub trait ParseContext<Tok> {
@@ -35,8 +34,7 @@ pub trait ParseContext<Tok> {
 ```
 
 ### ParsingRule
-
-解析规则 trait，定义如何从上下文中解析 AST 节点：
+Rules convert context into AST nodes:
 
 ```rust
 pub trait ParsingRule<Ctx, Tok, Ast>
@@ -52,8 +50,7 @@ where
 ```
 
 ### AstNode
-
-AST 节点 trait，定义节点必须提供的位置信息：
+AST nodes expose positional information:
 
 ```rust
 pub trait AstNode: Clone + std::fmt::Debug {
@@ -63,8 +60,7 @@ pub trait AstNode: Clone + std::fmt::Debug {
 ```
 
 ### Parser
-
-解析器结构体，协调规则的应用：
+The orchestrator that runs rules in order:
 
 ```rust
 pub struct Parser<Ctx, Tok, Ast> {
@@ -73,9 +69,9 @@ pub struct Parser<Ctx, Tok, Ast> {
 }
 ```
 
-## 使用示例
+## Usage Example
 
-### 1. 定义 Token 类型
+### 1. Define tokens
 
 ```rust
 #[derive(Debug, Clone)]
@@ -87,7 +83,7 @@ enum Token {
 }
 ```
 
-### 2. 定义 AST 节点类型
+### 2. Define AST nodes
 
 ```rust
 use parser_framework::{AstNode, Position};
@@ -108,20 +104,19 @@ impl AstNode for Expr {
 }
 ```
 
-### 3. 实现解析规则
+### 3. Implement rules
 
 ```rust
-use parser_framework::{ParseContext, ParsingRule, Position};
+use parser_framework::{ParseContext, ParsingRule};
 
 struct NumberRule;
 
 impl<Ctx, Tok> ParsingRule<Ctx, Tok, Expr> for NumberRule
 where
     Ctx: ParseContext<Tok>,
-    Tok: Clone + std::fmt::Debug + PartialEq,
+    Tok: Clone + std::fmt::Debug,
 {
     fn try_parse(&mut self, ctx: &mut Ctx) -> Option<Expr> {
-        // 检查当前 token 是否为数字
         if let Some(Token::Number(n)) = ctx.peek() {
             let position = ctx.position();
             ctx.advance();
@@ -141,7 +136,7 @@ where
 }
 ```
 
-### 4. 使用 Parser
+### 4. Run the parser
 
 ```rust
 use parser_framework::{DefaultContext, Parser};
@@ -151,13 +146,12 @@ let rules: Vec<Box<dyn ParsingRule<DefaultContext<Token>, Token, Expr>>> =
     vec![Box::new(NumberRule)];
 
 let mut parser = Parser::from_tokens(tokens, rules);
-let nodes = parser.parse();
+let ast_nodes = parser.parse();
 ```
 
-## Streaming 支持 (`streaming` feature)
+## Streaming Support (`streaming` feature)
 
-启用 `streaming` feature 后，可使用 `StreamingParseContext` 与 `TokenConsumer`
-实现增量解析，将 token 按需推入：
+Enable the feature to use `StreamingParseContext` and `TokenConsumer` for incremental parsing:
 
 ```rust
 use parser_framework::{Parser, StreamingParseContext, TokenConsumer};
@@ -167,50 +161,48 @@ let mut parser = Parser::new(context, rules);
 
 for token in token_stream {
     let asts = parser.push_token(token);
-    // 处理已完成的 AST 节点
+    // consume finished AST nodes
 }
 
 let remaining = parser.finish();
 ```
 
-这使得 lexer → parser 可以在同一条数据流上协同工作，实现真正的流式解析。
+This lets lexer → parser operate in the same pipeline for true streaming workflows.
 
-## 特性
+## Features
 
-- ✅ **CGP 设计模式**: 上下文与规则解耦
-- ✅ **优先级系统**: 规则按优先级排序，高优先级先尝试
-- ✅ **快速检查优化**: `quick_check` 方法可以快速跳过不匹配的规则
-- ✅ **检查点机制**: 支持回溯，规则失败时自动恢复状态
-- ✅ **位置跟踪**: 自动跟踪 token 和 AST 节点的位置信息
-- ✅ **错误处理**: 检测死循环和解析错误
+- ✅ **CGP design** – contexts and rules stay decoupled.
+- ✅ **Priority scheduler** – higher priority rules run first.
+- ✅ **`quick_check` optimization** – skip rules that cannot match.
+- ✅ **Checkpoint system** – safe backtracking when a rule fails.
+- ✅ **Position tracking** – consistent line/column/offset metadata.
+- ✅ **Error detection** – warn when rules make no progress.
 
-## 与 Lexer Framework 集成
+## Integration with the Lexer Framework
 
-Parser Framework 设计为与 Lexer Framework 配合使用：
+1. Use lexer-framework to produce a token stream.
+2. Feed the tokens into parser-framework to build AST nodes.
 
-1. 使用 Lexer Framework 将输入文本转换为 token 流
-2. 使用 Parser Framework 将 token 流解析为 AST
+Both frameworks embrace CGP so they compose naturally.
 
-两个框架都遵循 CGP 设计模式，可以无缝集成。
-
-## 架构设计
+## Architecture Diagram
 
 ```
-输入文本
+Input text
     ↓
-Lexer Framework (词法分析)
+Lexer Framework (lexing)
     ↓
-Token 流
+Token stream
     ↓
-Parser Framework (语法分析)
+Parser Framework (parsing)
     ↓
-AST 节点
+AST nodes
 ```
 
-两个框架都使用相同的设计模式：
-- **Context**: 抽象的操作接口
-- **Rule**: 具体的匹配/解析逻辑
-- **Orchestrator**: 协调规则的应用
+Shared concepts:
+- **Context** – abstraction over the data source.
+- **Rule** – concrete lex/parse logic.
+- **Orchestrator** – coordinates rule execution.
 
-这种一致性使得两个框架可以很好地协同工作。
+Consistency across these layers keeps the toolchain cohesive.
 
