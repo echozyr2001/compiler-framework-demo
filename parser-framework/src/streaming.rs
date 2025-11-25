@@ -111,12 +111,33 @@ where
 {
     fn push_token(&mut self, token: Tok) -> Vec<Ast> {
         self.context_mut().push_token(token);
-        Vec::new()
+        self.drain_ready_nodes()
     }
 
     fn finish(&mut self) -> Vec<Ast> {
         self.context_mut().mark_finished();
-        self.parse()
+        self.drain_ready_nodes()
+    }
+}
+
+impl<Tok, Ast> Parser<StreamingParseContext<Tok>, Tok, Ast>
+where
+    Tok: Clone + Debug,
+    Ast: AstNode,
+{
+    fn drain_ready_nodes(&mut self) -> Vec<Ast> {
+        let mut nodes = Vec::new();
+        loop {
+            let before = self.context().token_index();
+            match self.next_node() {
+                Some(node) => nodes.push(node),
+                None => break,
+            }
+            if self.context().token_index() == before {
+                break;
+            }
+        }
+        nodes
     }
 }
 
@@ -126,19 +147,16 @@ where
     Ast: AstNode,
 {
     fn next_signal(&mut self) -> Option<StreamingSignal<Tok, Ast>> {
-        // In streaming mode, we only try to parse when we have EOF,
-        // otherwise we just request more tokens
+        let produced = self.drain_ready_nodes();
+        if !produced.is_empty() {
+            return Some(StreamingSignal::Produced(produced));
+        }
+
         if self.context_mut().is_eof() {
-            // When EOF is reached, parse all remaining tokens
-            let remaining = self.parse();
-            if !remaining.is_empty() {
-                return Some(StreamingSignal::Produced(remaining));
-            }
             return Some(StreamingSignal::Finished(Vec::new()));
         }
 
-        // Before EOF, we always need more tokens
-        // Don't try to parse incrementally as it may fail for complex expressions
+        // Need more tokens.
         Some(StreamingSignal::NeedToken(1))
     }
 }

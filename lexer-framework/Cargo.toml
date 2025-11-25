@@ -19,6 +19,11 @@ path = "examples/json_lexer.rs"
 name = "batch_bench"
 harness = false
 
+[[bench]]
+name = "streaming_vs_default"
+harness = false
+required-features = ["streaming"]
+
 [features]
 default = []
 streaming = []

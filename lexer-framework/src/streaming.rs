@@ -11,6 +11,9 @@ pub struct StreamingLexContext {
     current: usize,
     finished: bool,
     position: Position,
+    buffer_version: u64,
+    cached_version: u64,
+    cached_arc: Option<Arc<str>>,
 }
 
 impl StreamingLexContext {
@@ -21,6 +24,9 @@ impl StreamingLexContext {
             current: 0,
             finished: false,
             position: Position::default(),
+            buffer_version: 0,
+            cached_version: 0,
+            cached_arc: None,
         }
     }
 
@@ -28,17 +34,35 @@ impl StreamingLexContext {
     pub fn push_char(&mut self, ch: char) {
         self.buffer.push(ch);
         self.finished = false;
+        self.buffer_version += 1;
     }
 
     /// Pushes a string slice into the context buffer.
     pub fn push_str(&mut self, s: &str) {
         self.buffer.push_str(s);
         self.finished = false;
+        self.buffer_version += 1;
     }
 
     /// Marks the context as finished, indicating no more characters will arrive.
     pub fn mark_finished(&mut self) {
         self.finished = true;
+    }
+
+    fn shared_buffer(&mut self) -> Arc<str> {
+        if self.cached_version != self.buffer_version {
+            let arc = Arc::<str>::from(self.buffer.as_str());
+            self.cached_arc = Some(arc.clone());
+            self.cached_version = self.buffer_version;
+            arc
+        } else {
+            self.cached_arc.as_ref().map(Arc::clone).unwrap_or_else(|| {
+                let arc = Arc::<str>::from(self.buffer.as_str());
+                self.cached_arc = Some(arc.clone());
+                self.cached_version = self.buffer_version;
+                arc
+            })
+        }
     }
 }
 
@@ -55,6 +79,9 @@ impl From<String> for StreamingLexContext {
             current: 0,
             finished: true,
             position: Position::default(),
+            buffer_version: 1,
+            cached_version: 0,
+            cached_arc: None,
         }
     }
 }
@@ -66,6 +93,9 @@ impl From<&str> for StreamingLexContext {
             current: 0,
             finished: true,
             position: Position::default(),
+            buffer_version: 1,
+            cached_version: 0,
+            cached_arc: None,
         }
     }
 }
@@ -125,7 +155,7 @@ impl LexContext for StreamingLexContext {
             self.advance();
         }
         let end = self.current;
-        let buffer_arc = Arc::<str>::from(self.buffer.as_str());
+        let buffer_arc = self.shared_buffer();
         common_framework::TextSlice::new(buffer_arc, start, end)
     }
 
